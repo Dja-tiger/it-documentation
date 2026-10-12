@@ -10,13 +10,20 @@ translation_status: "translated"
 > [!info]
 > Baseline: **Go 1.27.1**. Core/spec/runtime зафиксированы по `golang/go@go1.27.1`, User Manual и tutorials — по `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`.
 
+## Обучение
+
+- [[learning/README|Как изучать Go]]
+- [[learning/roadmap|Roadmap]]
+- [[learning/progress|Прогресс]]
+- [[learning/projects/README|Практические проекты]]
+
 ## Старт
 
 - [[docs/install|Установка Go]]
 - [[docs/manage-install|Управление версиями Go]]
 - [[docs/getting-started|Getting Started]]
 - [[docs/code|Как писать Go-код]]
-- [[docs/install-source|Сборка и установка Go из исходников]]
+- [Сборка и установка Go из исходников](https://go.dev/doc/install/source)
 - [[docs/editors|Editor plugins и IDE]]
 
 ## Язык и стиль
@@ -29,7 +36,7 @@ translation_status: "translated"
 
 ## Модули и toolchain
 
-- [[docs/modules/reference|Go Modules Reference]]
+- [Go Modules Reference](https://go.dev/ref/mod)
 - [[docs/modules/developing|Разработка и публикация модулей]]
 - [[docs/modules/managing-dependencies|Управление зависимостями]]
 - [[docs/modules/gomod-ref|Справочник go.mod]]
@@ -89,8 +96,8 @@ translation_status: "translated"
 - [[docs/security/fips140|FIPS 140]]
 - [[docs/security/decisions|Security decisions]]
 - [[docs/security/threat-model|Threat model]]
-- [[docs/security/ide|Vulnerability scanning в IDE]]
-- [[docs/security/cna|Go CNA policy]]
+- [[docs/security/vuln/editor|Vulnerability scanning в IDE]]
+- [[docs/security/vuln/cna|Go CNA policy]]
 - [[docs/security/fuzz/index|Fuzzing]]
 - [[docs/security/fuzz/technical|Техническая реализация fuzzing]]
 - [[docs/security/vuln/index|Go vulnerability management]]
@@ -98,7 +105,7 @@ translation_status: "translated"
 
 ## Проект Go
 
-- [[docs/contribute|Contribution Guide]]
+- [Contribution Guide](https://go.dev/doc/contribute)
 
 ## Release notes
 

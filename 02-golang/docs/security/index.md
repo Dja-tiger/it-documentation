@@ -1,69 +1,85 @@
 ---
-title: "Безопасность Go"
+title: "Безопасность"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/index.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Безопасность Go
+# Безопасность
 
-Эта страница объединяет официальные ресурсы, которые помогают разработчикам Go повышать безопасность проектов.
+Эта страница содержит resources, помогающие Go developers повышать безопасность своих projects.
 
-См. также [[best-practices|Security Best Practices for Go Developers]].
+См. также: [[best-practices|Security Best Practices for Go Developers]].
 
 ## Поиск и исправление известных уязвимостей
 
-Go vulnerability tooling стремится давать малошумные и проверяемые результаты: не просто сообщать, что зависимость когда-то содержала CVE, а по возможности определять, достигает ли application уязвимый symbol.
+Go vulnerability detection стремится предоставлять developers малошумные и надёжные tools, позволяющие узнать об известных vulnerabilities, которые могут затрагивать их projects.
 
-Архитектура vulnerability management описана в [[vuln/index|Go Vulnerability Management]].
+Для общего понимания начните со [[vuln/index|summary и FAQ по архитектуре vulnerability management Go]]. Для практической работы используйте tools ниже.
 
-### `govulncheck`
+### Проверка code через govulncheck
 
-`govulncheck` анализирует source/binaries и сопоставляет code с Go Vulnerability Database. Для source analysis он способен учитывать call graph и выделять vulnerabilities, чьи функции/методы действительно вызываются transitively.
+Developers могут использовать `govulncheck`, чтобы определить, влияют ли известные vulnerabilities на их code, и расставить priorities с учётом того, какие vulnerable functions и methods реально вызываются.
 
-Практический tutorial: [[../tutorial/govulncheck|Поиск уязвимостей через govulncheck]].
+- [Документация govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)
+- [[../tutorial/govulncheck|Tutorial: начало работы с govulncheck]]
 
-### IDE
+### Обнаружение vulnerabilities из editor
 
-`gopls` и редакторы с Go language-server integration могут показывать vulnerabilities dependencies. Подробнее: [[vuln/editor|Vulnerability Scanning in IDEs]].
+VS Code Go extension проверяет third-party dependencies и показывает relevant vulnerabilities.
 
-### pkg.go.dev
+- [[vuln/editor|User documentation]]
+- [Скачать VS Code Go](https://marketplace.visualstudio.com/items?itemName=golang.go)
+- [Tutorial: Get started with VS Code Go](https://go.dev/doc/tutorial/govulncheck-ide)
 
-pkg.go.dev показывает предупреждения о vulnerabilities конкретной version package/module и историю affected versions.
+### Поиск Go modules для использования
 
-### Go Vulnerability Database
+[pkg.go.dev](https://pkg.go.dev/) — website для поиска, оценки и изучения Go packages и modules.
 
-Go vulnerability database агрегирует и курирует reports из источников вроде CVE/MITRE, GitHub advisories и direct reports maintainers. Canonical API использует OSV schema.
+При просмотре packages на pkg.go.dev сверху страницы показывается [banner](https://pkg.go.dev/golang.org/x/text@v0.3.7/language), если выбранная version содержит known vulnerabilities.
 
-Подробнее: [[vuln/database|Go Vulnerability Database]].
+Кроме того, на странице version history можно увидеть [vulnerabilities, затрагивающие каждую version package](https://pkg.go.dev/golang.org/x/text@v0.3.7/language?tab=versions).
 
-## Сообщение security bugs в самом Go
+### Просмотр vulnerability database
 
-Правила private reporting, disclosure и release handling: [[policy|Go Security Policy]].
+Go vulnerability database получает data непосредственно от Go package maintainers, а также из внешних sources, включая [MITRE](https://www.cve.org/) и [GitHub](https://github.com/). Reports проходят curation Go Security team.
 
-Классификационные решения по частым категориям reports: [[decisions|Go Security Decisions]].
+- [Reports в Go vulnerability database](https://pkg.go.dev/vuln/)
+- [[vuln/database|Документация Go Vulnerability Database]]
+- [Добавить public vulnerability в database](https://go.dev/s/vulndb-report-new)
 
-Общий threat model standard library/toolchain: [[threat-model|Go Threat Model]].
+## Сообщение security bugs в Go project
 
-Go выпускает security fixes для поддерживаемых release lines согласно release policy; security announcements публикуются через `golang-announce`.
+### [[policy|Security Policy]]
 
-## Fuzzing
+Security Policy содержит instructions по [reporting vulnerability в Go project](https://go.dev/security/policy#reporting-a-security-bug).
 
-Native fuzzing встроен в Go toolchain с Go 1.18 и поддерживается OSS-Fuzz.
+Там же описан process Go security team по tracking issues и их public disclosure.
 
-- [[fuzz/index|Go Fuzzing]] — user-facing guide;
-- [[fuzz/technical|Техническое устройство fuzzing]];
-- [[../tutorial/fuzz|Tutorial]].
+[Release history](https://go.dev/doc/devel/release) содержит сведения о прошлых security fixes. Согласно [release policy](https://go.dev/doc/devel/release#policy), security fixes выпускаются для двух последних major Go releases.
 
-## Cryptography
+- [[decisions|Classification decisions about commonly-reported vulnerabilities]]
 
-Standard library `crypto/*` и `golang.org/x/crypto` предоставляют cryptographic primitives/protocol implementations. Выбирайте high-level APIs и следуйте package security notes.
+## Проверка неожиданных inputs через fuzzing
 
-## FIPS 140-3
+Native fuzzing Go — вид automated testing, который непрерывно изменяет inputs program, чтобы находить bugs.
 
-Go 1.24+ поддерживает native mode, упрощающий FIPS 140-3 compliance. Go 1.27 использует versioned Go Cryptographic Module и предоставляет build/runtime controls.
+Go поддерживает fuzzing в standard toolchain начиная с Go 1.18. Native Go fuzz tests [поддерживаются OSS-Fuzz](https://google.github.io/oss-fuzz/getting-started/new-project-guide/go-lang/#native-go-fuzzing-support).
 
-Подробнее: [[fips140|FIPS 140-3 Compliance]].
+- [[fuzz/index|Основы fuzzing]]
+- [[../tutorial/fuzz|Tutorial: начало работы с fuzzing]]
+
+## Защита services с cryptography libraries Go
+
+Cryptography libraries Go предназначены для помощи developers в создании secure applications.
+
+См. documentation для [crypto packages](https://pkg.go.dev/crypto) и [`golang.org/x/crypto`](https://pkg.go.dev/golang.org/x/crypto/).
+
+## FIPS 140-3 compliant cryptography
+
+Cryptography libraries Go можно использовать в FIPS 140-3 compliant mode для regulated environments.
+
+Подробнее см. [[fips140|FIPS 140-3 Compliance]].

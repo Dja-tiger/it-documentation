@@ -5,97 +5,162 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/fips140.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # FIPS 140-3 Compliance
 
-С Go 1.24 binaries могут нативно работать в режиме, упрощающем FIPS 140-3 compliance, а toolchain умеет линковать frozen versions Go Cryptographic Module.
+Начиная с Go 1.24 Go binaries могут нативно работать в mode, упрощающем FIPS 140-3 compliance. Кроме того, toolchain умеет build'ить программы с frozen versions cryptography packages, составляющих Go Cryptographic Module.
 
-> [!warning]
-> Использование validated cryptographic module **не гарантирует**, что application автоматически удовлетворяет всем regulatory requirements. Compliance зависит от полного system/process context.
+## FIPS 140-3
+
+NIST FIPS 140-3 — U.S. Government compliance regime для cryptographic applications. Среди прочего он требует использования approved algorithms и [CMVP](https://csrc.nist.gov/projects/cryptographic-module-validation-program)-validated cryptographic modules, протестированных в target operating environments.
+
+Mechanisms, описанные на этой странице, помогают Go applications выполнять соответствующие compliance requirements.
+
+Applications, которым FIPS 140-3 compliance не требуется, могут безопасно игнорировать эти mechanisms и не должны включать FIPS 140-3 mode.
+
+> [!note]
+> Само по себе использование FIPS 140-3 compliant и validated cryptographic module может быть недостаточно для выполнения всех regulatory requirements. Go team не может гарантировать или консультировать, удовлетворяет ли provided FIPS 140-3 mode конкретным требованиям конкретного user. Необходимо самостоятельно определить, соответствует ли использование module вашим требованиям.
 
 ## Go Cryptographic Module
 
-Это набор standard-library packages под:
+Go Cryptographic Module — набор standard library Go packages под:
 
 ```text
 crypto/internal/fips140/...
 ```
 
-Public APIs (`crypto/ecdsa`, `crypto/rand`, `crypto/tls`, и др.) прозрачно используют module implementations для approved algorithms.
+которые реализуют FIPS 140-3 approved algorithms.
 
-## FIPS mode
+Public API packages, например `crypto/ecdsa` и `crypto/rand`, прозрачно используют Go Cryptographic Module для implementation FIPS 140-3 algorithms.
 
-В режиме FIPS 140-3:
+## FIPS 140-3 mode
 
-- module выполняет integrity self-check при initialization, сверяя build-time checksum с loaded symbols;
-- algorithms выполняют known-answer self-tests по FIPS implementation guidance — при init или first use;
-- key generation выполняет pairwise consistency tests; для некоторых key types это может замедлять generation до ~2×;
-- `crypto/rand.Reader` использует NIST SP 800-90A DRBG и дополнительно смешивает platform CSPRNG bytes;
-- `crypto/tls` не договаривается о protocol/cipher/signature/key-exchange mechanisms, не approved FIPS mode;
-- `crypto/rsa.SignPSS` с `PSSSaltLengthAuto` ограничивает salt length длиной hash.
+При работе в FIPS 140-3 mode:
 
-Native mode не поддерживается на OpenBSD, Wasm, AIX и 32-bit Windows.
+- Go Cryptographic Module автоматически выполняет integrity self-check во время `init`, сравнивая checksum object file module, вычисленную при build, с symbols, загруженными в memory.
+- Все algorithms выполняют known-answer self-tests согласно соответствующему FIPS 140-3 Implementation Guidance либо при `init`, либо при first use.
+- Для generated cryptographic keys выполняются pairwise consistency tests. Для некоторых key types это может давать slowdown до 2×, что особенно важно для ephemeral keys.
+- [`crypto/rand.Reader`](https://pkg.go.dev/crypto/rand#Reader) реализован поверх NIST SP 800-90A DRBG. Чтобы сохранить тот же security level, что и у programs вне FIPS mode, при каждом `Read` дополнительно читаются random bytes из platform CSPRNG и смешиваются с output как uncredited additional data.
+- [`crypto/tls`](https://pkg.go.dev/crypto/tls) игнорирует и не negotiates protocol versions, cipher suites, signature algorithms и key-exchange mechanisms, не approved FIPS 140-3. Это эквивалентно legacy opt-in mechanism `crypto/tls/fipsonly` в Go+BoringCrypto.
+- [`crypto/rsa.SignPSS`](https://pkg.go.dev/crypto/rsa#SignPSS) с [`PSSSaltLengthAuto`](https://pkg.go.dev/crypto/rsa#PSSSaltLengthAuto) ограничивает salt length длиной hash.
 
-## `crypto/fips140`
+FIPS 140-3 mode не поддерживается на:
 
-```go
-crypto/fips140.Enabled()
-```
+- OpenBSD;
+- Wasm;
+- AIX;
+- 32-bit Windows.
 
-сообщает, активен ли FIPS mode.
+## Package `crypto/fips140`
 
-```go
-crypto/fips140.Version()
-```
+Function [`crypto/fips140.Enabled`](https://pkg.go.dev/crypto/fips140#Enabled) сообщает, активен ли FIPS 140-3 mode.
 
-возвращает version используемого Go Cryptographic Module.
+Function [`crypto/fips140.Version`](https://pkg.go.dev/crypto/fips140#Version) возвращает version используемого Go Cryptographic Module.
 
-## `GOFIPS140`
+## Environment variable `GOFIPS140`
 
-Build-time environment для `go build`, `go install`, `go test`:
+Environment variable `GOFIPS140` можно использовать с:
 
-| Value | Behavior |
-|---|---|
-| `off` | Default: текущий module из standard-library tree, FIPS mode default off. |
-| `latest` | Текущий module, FIPS mode default on. |
-| `v1.0.0`, `v1.26.0` | Выбрать frozen module version и включить FIPS mode default. |
-| `inprocess` | Последняя version в CMVP Modules In Process List. |
-| `certified` | Последняя version с CMVP validation certificate. |
+- `go build`;
+- `go install`;
+- `go test`.
 
-## `GODEBUG=fips140`
+Она выбирает version Go Cryptographic Module, которая будет linked в executable, и может включать FIPS 140-3 mode по default.
 
-Runtime option нельзя изменить после process startup.
+Поддерживаемые values:
+
+- `off` — default; используется `crypto/internal/fips140/...` из текущего standard library tree.
+- `latest` — как `off`, но FIPS 140-3 mode включён по default.
+- `v1.0.0` или `v1.26.0` — выбирают соответствующую конкретную version Go Cryptographic Module и включают FIPS 140-3 mode по default.
+- `inprocess` — эквивалент latest version, которая достигла [CMVP Modules In Process List](https://csrc.nist.gov/Projects/cryptographic-module-validation-program/modules-in-process/modules-in-process-list).
+- `certified` — эквивалент latest version, получившей [CMVP validation certificate](https://csrc.nist.gov/projects/cryptographic-module-validation-program/validated-modules/search?SearchMode=Basic&ModuleName=Go+Cryptographic+Module&CertificateStatus=Active&ValidationYear=0).
+
+## `fips140` option `GODEBUG`
+
+Runtime option `fips140` в [[../godebug|GODEBUG]] управляет работой Go Cryptographic Module в FIPS 140-3 mode.
+
+После program startup изменить его нельзя.
+
+По default:
 
 ```text
 fips140=off
+```
+
+если только при build не был установлен `GOFIPS140`.
+
+При:
+
+```text
 fips140=on
+```
+
+FIPS 140-3 mode включается. Это можно сделать даже если `GOFIPS140` не был установлен при build.
+
+При:
+
+```text
 fips140=only
 ```
 
-`only` — **best-effort testing/assessment mode**, не production compliance mode. Non-compliant algorithms могут error/panic; возможны false positives/negatives. Большинству programs следует выбирать FIPS build через `GOFIPS140`, а не `only`.
+cryptographic algorithms, не compliant FIPS 140-3, возвращают error или panic.
 
-## Module versions
+Это **best-effort mode только для testing, assessment и debugging**.
 
-### v1.26.0
+Он:
 
-Frozen в начале 2026 из Go 1.26, доступен Go 1.26+. По pinned upstream status на 2026-04-28 находился Pending Review CMVP и имел CAVP certificate A8028.
+- не предназначен для production;
+- не требуется Security Policy;
+- намеренно вводит crashes и потенциально unhandled errors;
+- может иметь false positives и false negatives.
 
-Отличия от v1.0.0 включают:
+Большинству programs не следует задавать этот option напрямую. Вместо этого используйте `GOFIPS140` при build.
 
-- ML-DSA;
-- `testing/cryptotest.SetGlobalRandom`;
-- новые AES-GCM compliance APIs;
-- CPU-jitter Entropy Source с validation certificates;
-- safety/performance improvements.
+## Module versions, validations и compatibility
 
-### v1.0.0
+Google имеет contractual relationship с [Geomys](https://geomys.org/) для проведения как минимум yearly CMVP validations Go Cryptographic Module.
 
-Frozen в начале 2024 из Go 1.24, доступен Go 1.24+, имеет CMVP certificate #5247 и CAVP A6650.
+В момент validation Go Cryptographic Module freeze'ится и создаётся новая module version для submission.
 
-Older module versions поддерживаются до появления validated newer replacement; после этого older frozen module может быть удалён из distribution. При old module некоторые newer standard-library crypto features могут быть unavailable/error.
+Validations выполняются на широком наборе Operating Environments и охватывают многие популярные combinations operating systems и hardware platforms.
+
+Older Go Cryptographic Module versions остаются supported и available до тех пор, пока более новая version не получит CMVP validation certificate.
+
+После получения certificate более новой version older versions удаляются.
+
+Некоторые features standard library могут стать недоступны и возвращать errors, если используется Go Cryptographic Module, frozen из более старой Go version.
+
+### Go Cryptographic Module v1.26.0
+
+Go Cryptographic Module v1.26.0 был frozen в начале 2026 года из Go 1.26.
+
+Он доступен в Go 1.26+.
+
+По состоянию на 2026-04-28 он имел status **Pending Review** в CMVP Modules In Process List и был покрыт [CAVP Certificate A8028](https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/details?validation=40638).
+
+#### Изменения относительно v1.0.0
+
+- Реализован ML-DSA.
+- Поддерживается [`testing/cryptotest.SetGlobalRandom`](https://pkg.go.dev/testing/cryptotest#SetGlobalRandom).
+- Добавлены новые AES-GCM compliance APIs для использования в `crypto/hpke` и future exposed APIs.
+- Go Cryptographic Module теперь использует CPU jitter Entropy Source с [ESV Certificate #E318](https://csrc.nist.gov/projects/cryptographic-module-validation-program/entropy-validations/certificate/318) и [CAVP Certificate A7715](https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/details?product=20498). Platform CSPRNG по-прежнему используется как uncredited additional data source для всех random bytes.
+- Различные safety и performance improvements.
+
+### Go Cryptographic Module v1.0.0
+
+Go Cryptographic Module v1.0.0 был frozen в начале 2024 года из Go 1.24.
+
+Он доступен в Go 1.24+.
+
+Он покрыт:
+
+- [CMVP Certificate #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247);
+- [CAVP Certificate A6650](https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program/details?product=19371).
 
 ## Go+BoringCrypto
 
-Старый BoringCrypto-based mechanism пока существует, но планируется replacement native FIPS mode. Он несовместим с native Go FIPS 140-3 mode.
+Предыдущий unsupported mechanism использования BoringCrypto module для некоторых FIPS 140-3 approved algorithms пока остаётся доступным, но должен быть удалён и заменён mechanism, описанным на этой странице, в future release.
+
+Go+BoringCrypto несовместим с native FIPS 140-3 mode.

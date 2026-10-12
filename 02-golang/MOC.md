@@ -2,10 +2,13 @@
 title: "Go / Golang — карта документации"
 technology: "Go"
 version: "1.27.1"
-translation_status: "in_progress"
+translation_status: "translated"
 ---
 
 # Go / Golang
+
+> [!info]
+> Baseline: **Go 1.27.1**. Core/spec/runtime зафиксированы по `golang/go@go1.27.1`, User Manual и tutorials — по `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`.
 
 ## Старт
 
@@ -13,17 +16,20 @@ translation_status: "in_progress"
 - [[docs/manage-install|Управление версиями Go]]
 - [[docs/getting-started|Getting Started]]
 - [[docs/code|Как писать Go-код]]
+- [[docs/install-source|Сборка и установка Go из исходников]]
+- [[docs/editors|Editor plugins и IDE]]
 
 ## Язык и стиль
 
-- [[docs/effective-go|Effective Go]]
 - [[docs/spec|Спецификация языка Go]]
 - [[docs/memory-model|Модель памяти Go]]
+- [[docs/effective-go|Effective Go]]
 - [[docs/faq|FAQ]]
 - [[docs/comment|Go Doc Comments]]
 
 ## Модули и toolchain
 
+- [[docs/modules/reference|Go Modules Reference]]
 - [[docs/modules/developing|Разработка и публикация модулей]]
 - [[docs/modules/managing-dependencies|Управление зависимостями]]
 - [[docs/modules/gomod-ref|Справочник go.mod]]
@@ -35,7 +41,7 @@ translation_status: "in_progress"
 - [[docs/modules/release-workflow|Release workflow]]
 - [[docs/toolchain|Go toolchains]]
 
-## Runtime и performance
+## Runtime, diagnostics и performance
 
 - [[docs/gc-guide|Руководство по GC]]
 - [[docs/pgo|Profile-guided optimization]]
@@ -43,6 +49,7 @@ translation_status: "in_progress"
 - [[docs/race-detector|Data Race Detector]]
 - [[docs/godebug|GODEBUG]]
 - [[docs/asm|Go assembler]]
+- [[docs/build-cover|Coverage для приложений и integration tests]]
 
 ## Tutorials
 
@@ -56,6 +63,7 @@ translation_status: "in_progress"
 - [[docs/tutorial/web-service-gin|REST API с Gin]]
 - [[docs/tutorial/json|Работа с JSON]]
 - [[docs/tutorial/govulncheck|Поиск уязвимостей govulncheck]]
+- [[docs/articles/wiki|Writing Web Applications]]
 
 ## Database / SQL
 
@@ -69,22 +77,46 @@ translation_status: "in_progress"
 - [[docs/database/manage-connections|Управление соединениями]]
 - [[docs/database/sql-injection|Защита от SQL injection]]
 
+## JSON
+
+- [[docs/jsonv2-migration|Миграция с encoding/json на encoding/json/v2]]
+
 ## Security
 
 - [[docs/security/index|Безопасность Go]]
 - [[docs/security/best-practices|Security best practices]]
 - [[docs/security/policy|Security policy]]
 - [[docs/security/fips140|FIPS 140]]
+- [[docs/security/decisions|Security decisions]]
+- [[docs/security/threat-model|Threat model]]
+- [[docs/security/ide|Vulnerability scanning в IDE]]
+- [[docs/security/cna|Go CNA policy]]
 - [[docs/security/fuzz/index|Fuzzing]]
 - [[docs/security/fuzz/technical|Техническая реализация fuzzing]]
 - [[docs/security/vuln/index|Go vulnerability management]]
 - [[docs/security/vuln/database|Go vulnerability database]]
 
+## Проект Go
+
+- [[docs/contribute|Contribution Guide]]
+
 ## Release notes
 
 - [[docs/release-notes/go1.27|Go 1.27 Release Notes]]
+
+## Generated / external references
+
+Эти ресурсы являются частью официальной документационной экосистемы, но не копируются как ручной Markdown-перевод, потому что генерируются из исходного кода или являются интерактивными:
+
+- [Standard library API](https://pkg.go.dev/std)
+- [Command documentation](https://pkg.go.dev/cmd)
+- [A Tour of Go](https://go.dev/tour/)
+- [История релизов Go](https://go.dev/doc/devel/release)
 
 ## Метаданные
 
 - [[_meta/sync-rules|Правила синхронизации]]
 - `_meta/manifest.json` — machine-readable coverage/status.
+
+> [!note]
+> Upstream FAQ исторически утверждал, что methods не могут иметь собственные type parameters. Начиная с Go 1.27 generic methods разрешены; в переводе это расхождение явно исправлено по спецификации Go 1.27.1.

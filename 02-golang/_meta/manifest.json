@@ -1,0 +1,18 @@
+{
+  "technology": "Go",
+  "baseline": {
+    "go_version": "1.27.1",
+    "go_repo": "golang/go",
+    "go_ref": "go1.27.1",
+    "website_repo": "golang/website",
+    "website_ref": "575a6925e2d55ad160ed77f402bfaa4ec7458749",
+    "captured_at": "2026-10-12"
+  },
+  "scope": "Official textual documentation from go.dev/doc and core language/runtime references from golang/go/doc. Generated pkg.go.dev standard-library API is tracked separately.",
+  "status": "in_progress",
+  "generated_api": {
+    "url": "https://pkg.go.dev/std",
+    "translation_status": "external_generated_reference"
+  },
+  "documents": []
+}

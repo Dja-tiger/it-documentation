@@ -5,199 +5,304 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/pgo.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Profile-guided optimization
 
-Начиная с Go 1.20 compiler поддерживает Profile-Guided Optimization (PGO), также называемую Feedback-Directed Optimization (FDO).
+Начиная с Go 1.20 compiler поддерживает Profile-Guided Optimization (PGO), также называемую Feedback-Directed Optimization (FDO), для дополнительной optimization builds.
 
-Идея: CPU profile representative execution передаётся compiler следующего build, чтобы compiler знал реальные hot paths и принимал более точные optimization decisions — например, aggressive inlining hot calls.
+Содержание:
 
-Go использует **CPU pprof profiles** как PGO input.
+- [Обзор](#overview)
+- [Сбор profiles](#collecting-profiles)
+- [Сборка с PGO](#building)
+- [Примечания](#notes)
+- [FAQ](#faq)
+- [Appendix: alternative profile sources](#alternative-sources)
 
-В upstream guide зафиксировано: representative benchmarks Go programs для Go 1.22 показывали примерно **2–14%** performance improvement; конкретный выигрыш workload-specific и меняется с развитием compiler.
+## Обзор {#overview}
 
-## Collecting profiles
+Profile-guided optimization — compiler optimization technique, которая передаёт information из representative runs application обратно compiler следующего build. Compiler использует profile, чтобы принимать более informed optimization decisions.
 
-Подходящие sources:
+Например, compiler может более aggressively inline functions, которые profile показывает как часто вызываемые.
 
-- `runtime/pprof`;
-- `net/http/pprof`;
-- converted external profiles, если они соответствуют pprof requirements.
+Go compiler использует **CPU pprof profiles** как PGO input, например profiles из [`runtime/pprof`](https://pkg.go.dev/runtime/pprof) или [`net/http/pprof`](https://pkg.go.dev/net/http/pprof).
 
-Наиболее важное условие — profile должен быть **representative production behavior**.
+По состоянию на Go 1.22 benchmarks representative set Go programs показывали, что build с PGO улучшает performance примерно на **2–14%**. Ожидается, что gains со временем будут расти по мере добавления новых PGO-aware optimizations.
 
-Unrepresentative profile обычно даёт мало пользы. Microbenchmarks чаще всего плохой source, потому что покрывают узкий subset application.
+## Сбор profiles {#collecting-profiles}
 
-### Recommended iterative workflow
+Go compiler ожидает CPU pprof profile.
 
-1. Build/release initial binary без PGO или с предыдущим profile.
-2. Collect CPU profiles production.
-3. При следующем release build latest source с collected profile.
-4. Release optimized binary.
-5. Collect profiles уже с него.
-6. Repeat.
+Profiles, generated Go runtime — например через `runtime/pprof` и `net/http/pprof` — можно использовать напрямую.
 
-Go PGO специально разработан устойчивым к небольшому skew между profiled source и source следующего build, а также к profiles, собранным с уже PGO-optimized binaries.
+Profiles из других systems иногда можно использовать после conversion; requirements описаны в [appendix](#alternative-sources).
 
-## Building with PGO
+Для best results profile должен быть **representative реального production behavior** application.
 
-Standard convention — положить CPU profile с именем:
+Unrepresentative profile, скорее всего, даст мало или вообще не даст improvement в production. Поэтому primary recommended approach — собирать profiles непосредственно из production environment.
+
+Типичный workflow:
+
+1. Build и release initial binary **без PGO**.
+2. Collect profiles from production.
+3. При следующем release build latest source с production profile.
+4. Вернуться к step 2.
+
+Go PGO в целом устойчив к skew между profiled version application и version, которая собирается с profile, а также к profiles, собранным с уже optimized binaries. Именно это делает iterative lifecycle возможным.
+
+Подробнее — [AutoFDO](#autofdo).
+
+Если собирать profile в production трудно или невозможно, например command-line tool распространяется конечным users, можно использовать representative benchmark.
+
+Но representative benchmarks сложно строить и поддерживать representative по мере evolution application.
+
+Особенно важно: **microbenchmarks обычно плохие candidates для PGO profiling**, потому что покрывают лишь малую часть application и поэтому дают маленький benefit для whole-program optimization.
+
+## Сборка с PGO {#building}
+
+Standard approach — хранить pprof CPU profile под name:
 
 ```text
 default.pgo
 ```
 
-в directory main package.
+в directory main package profiled binary.
 
-Default `go build` обнаруживает его при `-pgo=auto`.
+По default `go build` автоматически обнаруживает `default.pgo` и включает PGO.
 
-Официальный guide рекомендует хранить profile рядом с source в repository, потому что profile является build input, влияющим на performance/reproducibility.
+Profiles рекомендуется commit'ить прямо в source repository, потому что они являются build input, важным и для reproducibility, и для performance. Хранение рядом с source убирает дополнительные steps получения profile перед build.
 
-Явный profile:
+Для более сложных scenarios используется flag `go build -pgo`.
 
-```bash
-go build -pgo=/tmp/service.pprof ./cmd/service
+Default:
+
+```text
+-pgo=auto
 ```
 
-Отключить:
+что реализует behavior `default.pgo` выше.
+
+Полностью отключить PGO:
 
 ```bash
-go build -pgo=off ./cmd/service
+go build -pgo=off
 ```
 
-> [!warning]
-> Один explicit `-pgo=/path/profile` применяется ко **всем** main packages в конкретном `go build`. Если собираются разные binaries, обычно каждому нужен свой representative profile и отдельный build invocation.
+Если `default.pgo` использовать нельзя, можно явно передать path:
 
-До Go 1.21 default был `-pgo=off`; в modern Go auto mode — standard workflow.
+```bash
+go build -pgo=/tmp/foo.pprof
+```
 
-## Representative production profiles
+> [!note]
+> Path, переданный `-pgo`, применяется ко **всем** main packages одного invocation.
+>
+> Например:
+>
+> ```bash
+> go build -pgo=/tmp/foo.pprof ./cmd/foo ./cmd/bar
+> ```
+>
+> применяет `foo.pprof` и к `foo`, и к `bar`, что обычно нежелательно. Разные binaries чаще всего требуют разных profiles и отдельных `go build` invocations.
 
-Простой старт для HTTP service:
+> [!note]
+> До Go 1.21 default был `-pgo=off`; PGO требовалось включать явно.
+
+## Примечания {#notes}
+
+### Сбор representative production profiles
+
+Production environment — лучший source representative profiles.
+
+Самый простой способ начать — подключить `net/http/pprof` и получить:
 
 ```text
 /debug/pprof/profile?seconds=30
 ```
 
-Но один 30-second profile одной instance может быть biased:
+с произвольной instance service.
 
-- instance временно idle;
-- traffic mix меняется по времени суток;
-- long-running operations не помещаются в sample window;
-- load balancer неравномерно распределяет request types.
+Это хороший старт, но single 30-second profile может быть unrepresentative:
 
-Лучше собирать multiple profiles:
+- instance может быть idle именно в момент profiling, хотя обычно busy;
+- traffic patterns могут меняться в течение day;
+- instance может выполнять long-running operations, например 5 min operation A, затем 5 min operation B; 30-second profile, скорее всего, захватит только один operation type;
+- load distribution между instances может быть uneven.
 
-- в разные моменты времени;
-- с разных replicas;
-- с одинаковой duration;
-- с representative traffic.
+Более robust strategy — собирать multiple profiles в разные moments и с разных instances, уменьшая влияние variation individual profiles.
 
-Continuous profiling systems хорошо подходят как production profile source.
+После этого profiles можно [merge](#merging-profiles).
 
-## Merge profiles
+Многие organizations используют continuous profiling services, автоматически sampling fleet; такие systems подходят как source для PGO profiles.
+
+### Merge profiles {#merging-profiles}
+
+`pprof` умеет объединять profiles:
 
 ```bash
 go tool pprof -proto a.pprof b.pprof > merged.pprof
 ```
 
-Merge фактически суммирует samples и не нормализует их по wall duration. Поэтому profiles, представляющие равные sampling windows, должны иметь одинаковую duration; иначе длинный profile получает больший weight.
+Merge фактически является straightforward sum samples inputs независимо от wall duration.
 
-Для разных workloads weighting должен отражать desired production importance/footprint.
+Поэтому для profiles коротких slices long-running service обычно нужно использовать одинаковую duration, например по 30 seconds.
 
-## AutoFDO properties
+Иначе longer profiles будут overrepresented.
 
-### Source stability
+### AutoFDO {#autofdo}
 
-Profile от немного старой source revision всё ещё полезен.
+Go PGO разработан для workflow в стиле [AutoFDO](https://research.google/pubs/pub45290/).
 
-Compiler сопоставляет samples с current source heuristically. Многие changes не ломают matching:
+Повторим lifecycle:
 
-- изменения вне hot function;
-- добавление других functions;
-- перемещение function в другой file того же package.
+1. Build/release initial binary без PGO.
+2. Collect profiles из production.
+3. Build latest source с profile.
+4. GOTO 2.
 
-Могут ломать matching:
+Здесь важны два свойства.
 
-- significant edits внутри hot function, меняющие line offsets;
-- function/type rename;
-- move function в другой package.
+**Source stability.** Development продолжается постоянно, поэтому source profiled binary обычно немного отличается от latest source следующего build. Go PGO пытается быть устойчивым к такому skew.
 
-Если конкретный function не сопоставлен, degradation graceful: теряется PGO optimization этой части, но другие hot functions продолжают получать benefits.
+**Iterative stability.** После первого iteration profiled binary уже PGO-optimized предыдущим profile. Go PGO должен оставаться стабильным и в closed loop.
 
-Profile skew накапливается, поэтому profiles нужно обновлять регулярно, особенно после крупного refactoring.
+Source stability достигается heuristics, сопоставляющими samples profile с compiling source.
 
-### Iterative stability
+Например, добавление новых functions обычно не ломает mapping существующего code. Если changed code сопоставить не удаётся, degradation graceful: конкретная function теряет часть optimization opportunities, но PGO benefit в целом распределён по многим functions.
 
-В теории PGO могла бы создать oscillation: function hot → optimized → перестала hot → не optimized next build → снова hot. Go compiler использует conservative optimization approach, чтобы избегать такой instability.
+Iterative stability означает отсутствие performance oscillation между successive PGO builds: fast → slow → fast.
 
-Именно source + iterative stability позволяют не строить каждый release обязательным двух-stage pipeline `unoptimized canary -> profile -> final build`.
+Теоретически hot function можно так сильно ускорить PGO, что в следующем profile она перестанет быть hot и optimization исчезнет, после чего function снова станет slow. Go compiler intentionally применяет conservative PGO optimizations, чтобы избегать значительной variance.
 
-## Новый код
+Если наблюдается такая instability, upstream просит [создать issue](https://go.dev/issue/new).
 
-Новый code path отсутствует в old profile, поэтому первый release после feature introduction не получает full PGO benefits для этого path. После rollout соберите новый profile — steady-state performance следующего build может быть лучше.
+Source и iterative stability вместе позволяют не требовать обязательный two-stage build:
 
-## Standard library
+```text
+unoptimized canary -> profile -> final production build
+```
 
-PGO применяется ко **всей program**, включая standard library packages, которые rebuild'ятся с учетом profile.
+если только не требуется абсолютно peak performance.
 
-## Dependencies
+### Source stability и refactoring {#source-stability}
 
-То же относится к packages dependent modules. Unique usage dependency вашей application влияет на оптимизации этой dependency.
+Go PGO best-effort сопоставляет samples старого profile с current source.
 
-## Может ли плохой profile сделать хуже?
+Основной mechanism — line offsets внутри functions, например «call на 5-й line function `foo`».
 
-Design goal Go — unrepresentative profile не должен делать hot production path медленнее, чем no-PGO build. Он просто может оптимизировать cold code и дать минимальный benefit. Если observed performance регрессирует именно из-за PGO, upstream просит filing issue.
+Изменения, которые обычно **не ломают** matching:
 
-## Cross-platform profiles
+- changes в file вне hot function;
+- добавление/change code выше или ниже function;
+- перемещение function в другой file того же package — compiler игнорирует source filename.
 
-Profile format совместим между `GOOS/GOARCH`, поэтому profile `linux/arm64` можно применять к `windows/amd64` build.
+Изменения, которые **могут ломать** matching:
 
-Но source/platform-specific code может не match, например internals `os` package для Linux/Windows. Platform-independent application code обычно всё равно сопоставляется.
+- edits внутри hot function, меняющие line offsets;
+- rename function и/или receiver type methods;
+- move function в другой package, меняющий symbol name.
 
-Можно merge profiles разных architectures/platforms, учитывая workload weighting.
+Если profile относительно fresh, обычно affected лишь небольшой subset hot functions.
 
-## Один binary, разные workloads
+Но degradation постепенно accumulates, потому что source редко refactor'ится обратно в прежнее состояние. Поэтому profiles важно регулярно обновлять.
 
-Например database binary используется read-heavy и write-heavy services.
+Large refactor, который массово renames functions или перемещает их между packages, может заметно ухудшить matching до появления нового profile.
 
-Варианты:
+Теоретически для rote renames старый profile можно переписать, заменив symbol names. Package [`github.com/google/pprof/profile`](https://pkg.go.dev/github.com/google/pprof/profile) содержит primitives для такой rewrite, но на момент upstream document готового off-the-shelf tool нет.
 
-1. **Отдельный build/profile на workload** — лучший peak performance, больше operational complexity.
-2. **Один profile самого важного workload** — maximal benefit для приоритетного сценария, common code всё равно может улучшить остальные.
-3. **Merged fleet profile** — умеренные benefits для всех, один binary.
+### Performance нового code
 
-## Build time
+Новый code или code path, включённый feature flag, отсутствует в старом profile.
 
-PGO увеличивает build time. Profile влияет на весь dependency graph, поэтому first build с новым profile может rebuild'ить все packages.
+Поэтому первый release не получает для него PGO optimizations. После rollout соберите новый profile.
 
-Build cache применяется как обычно; повторные incremental builds с тем же profile не обязаны rebuild'ить всё.
+При оценке initial rollout учитывайте, что он не обязательно отражает steady-state performance будущих PGO builds.
 
-## Binary size
+## FAQ {#faq}
 
-PGO может немного увеличить binary из-за дополнительного inlining.
+### Можно ли PGO optimize standard library packages?
 
-## Alternative profile sources
+Да.
 
-External profile можно использовать, если он converted в pprof format и содержит необходимые данные.
+PGO применяется ко **всей program**. Все packages rebuild'ятся с учётом profile, включая standard library.
 
-Requirements:
+### Можно ли optimize packages dependent modules?
 
-- sample index типа/unit `samples/count` или `cpu/nanoseconds`;
-- samples отражают CPU time в locations;
-- profile symbolized (`Function.name` заполнен);
-- samples содержат frames для **inlined functions**, иначе iterative stability страдает;
-- `Function.start_line` заполнен — compiler использует его для line offsets.
+Да.
 
-До Go 1.21 DWARF мог не содержать function start lines, что затрудняло conversion external profiles.
+PGO применяется ко всей program, включая dependency packages. Поэтому unique way, которым ваша application использует dependency, влияет на optimizations этой dependency.
 
-## Production practice
+### Может ли unrepresentative profile сделать program медленнее, чем без PGO?
 
-PGO стоит рассматривать как часть build supply chain:
+Не должен.
 
-- profile — versioned build input;
-- source profile должен быть доверенным и representative;
-- CI должен уметь reproducibly выбрать конкретный profile;
-- после крупных refactors профиль обновляется;
-- improvement проверяется benchmarks/load tests, а не предполагается.
+Unrepresentative profile может направить optimizations в cold code и дать мало benefit, но hot code не должен стать медленнее именно из-за PGO.
+
+Если PGO стабильно ухудшает performance относительно `-pgo=off`, upstream просит [создать issue](https://go.dev/issue/new).
+
+### Можно ли использовать один profile для разных `GOOS/GOARCH` builds?
+
+Да.
+
+Profile format equivalent между OS/architecture configurations. Например, profile `linux/arm64` можно использовать для `windows/amd64` build.
+
+Но применяются source-stability caveats. Platform-specific code, который отличается между configurations, не будет match'иться.
+
+Например, internals file handling package `os` различаются между Linux и Windows, поэтому Windows equivalents hot Linux functions не получат PGO optimizations из Linux-only samples.
+
+Profiles разных platforms можно merge'ить.
+
+### Что делать, если один binary используется для разных workload types?
+
+Однозначного выбора нет.
+
+Пример: database binary используется read-heavy в одном service и write-heavy в другом.
+
+Три options:
+
+1. **Отдельный binary/profile для каждого workload.** Лучший performance для каждого scenario, но больше operational complexity.
+2. **Один binary с profile самого важного workload.** Максимизирует benefit приоритетного workload; shared code часто улучшит и остальные.
+3. **Merge profiles всех workloads**, weighted по total footprint. Обычно даёт умеренный improvement всем workloads при одном common binary.
+
+### Как PGO влияет на build time?
+
+PGO обычно заметно увеличивает package build times.
+
+Главная причина: profile влияет на все packages binary, поэтому first use нового profile требует rebuild всего dependency graph.
+
+Как и обычные builds, результаты cache'ятся, поэтому subsequent incremental builds с тем же profile не требуют полного rebuild.
+
+Если build time растёт аномально сильно, upstream просит file issue.
+
+### Как PGO влияет на binary size?
+
+PGO может слегка увеличивать binary из-за дополнительного function inlining.
+
+## Appendix: alternative profile sources {#alternative-sources}
+
+CPU profiles из Go runtime уже имеют правильный format для PGO.
+
+Organizations могут предпочитать другие tools, например Linux `perf`, или иметь existing fleet-wide continuous profiling systems.
+
+Alternative profile можно использовать после conversion в [pprof format](https://github.com/google/pprof/tree/main/proto), если выполнены requirements:
+
+- один sample index должен иметь type/unit `samples`/`count` или `cpu`/`nanoseconds`;
+- samples должны представлять CPU time в sample location;
+- profile должен быть symbolized: `Function.name` заполнен;
+- samples должны содержать stack frames **inlined functions**, иначе Go не сможет поддерживать iterative stability;
+- `Function.start_line` должен быть заполнен — это line, содержащая keyword `func`; compiler использует:
+
+```text
+Location.Line.line - Function.start_line
+```
+
+для вычисления line offsets samples.
+
+Многие existing pprof converters не заполняют `Function.start_line`.
+
+> [!note]
+> До Go 1.21 DWARF metadata не содержала function start lines (`DW_AT_decl_line`), что может усложнять conversion external profiles.
+
+Дополнительная информация о compatibility third-party tools: [PGO Tools](https://go.dev/wiki/PGO-Tools).

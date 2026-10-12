@@ -115,7 +115,7 @@ translation_status: "in_progress"
 
 ## Проект Go
 
-- [Contribution Guide — upstream](https://go.dev/doc/contribute) — локальное зеркало пока отсутствует.
+- [[docs/contribute|Contribution Guide]]
 
 ## Release notes
 

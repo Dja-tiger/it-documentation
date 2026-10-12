@@ -1,109 +1,144 @@
 ---
-title: "Go Fuzzing — технические детали"
+title: "Go Fuzzing technical details"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/fuzz/technical.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Техническое устройство native fuzzing
+# Go Fuzzing technical details
 
-Документ предназначен главным образом contributors/tooling developers.
+Этот документ даёт обзор technical details native fuzzing implementation и предназначен как resource для contributors.
 
-## Architecture
+## Общая architecture
 
-Fuzzer состоит из:
+Fuzzer использует:
 
-- одного **coordinator process** — corpus, scheduling, minimization/results;
-- нескольких **worker processes** — mutation + execution fuzz target.
+- один coordinator process, управляющий corpus;
+- несколько worker processes, которые mutating inputs и выполняют fuzz target.
 
-Coordinator создаёт goroutine на worker, запускает child process и настраивает IPC. Main coordinator loop выбирает corpus entries и отправляет work в shared worker channel.
+Coordinator и workers взаимодействуют через piped JSON-based RPC protocol и shared regions virtual memory.
 
-Worker мутирует input и повторно выполняет target, пока:
+Для каждого worker coordinator создаёт goroutine, которая запускает worker process и настраивает cross-process communication. Затем каждая такая goroutine читает shared channel, который заполняется main coordinator loop, и передаёт прочитанные instructions соответствующему worker process.
 
-- coverage counters расширились;
-- произошёл recoverable panic/failure;
-- истёк deadline.
+Main coordinator loop выбирает inputs из corpus и отправляет их в shared worker channel. Worker, получивший input, отправляет fuzzing request соответствующему worker process.
 
-При interesting input worker сообщает state coordinator'у. Coordinator reconstruct'ит mutated input, пытается minimize и:
+Worker process выполняет loop: изменяет input и запускает fuzz target до тех пор, пока execution:
 
-- добавляет его в corpus, если найден новый coverage;
-- сохраняет в `testdata`, если input вызывает failure.
+- не увеличит coverage counters;
+- не вызовет panic или crash;
+- либо не превысит заранее заданный deadline.
 
-При non-recoverable worker death (OOM, `os.Exit`, infinite loop/timeout и т. п.) minimization может не выполняться; failing input всё равно восстанавливается/сохраняется насколько возможно.
+Если worker process выполняет mutated input, который увеличивает coverage counters или вызывает recoverable panic, он сообщает об этом coordinator. Coordinator способен reconstruct mutated input.
 
-## IPC
+Coordinator пытается [minimize input](#input-minimization), после чего:
 
-Для каждого worker используются два механизма:
+- при increased coverage добавляет его в corpus для дальнейшего fuzzing;
+- при error/panic записывает его в `testdata`.
 
-1. **pipe** с JSON-based RPC — commands/results;
-2. **shared virtual-memory region** — corpus input и RNG state.
+Если во время fuzzing происходит non-recoverable error, завершающий worker process — например infinite loop, `os.Exit`, memory exhaustion и т. п. — minimization не выполняется. Failing input записывается в `testdata` и report'ится.
 
-RNG state позволяет coordinator воспроизвести sequence mutations и reconstruct input даже после worker crash.
+Upstream document сопровождает этот flow sequence diagram coordinator ↔ worker: `/security/fuzz/seq-diagram.png`.
+
+### Cross-process communication
+
+При запуске child worker process coordinator настраивает два communication mechanisms:
+
+1. pipe для JSON-based RPC messages;
+2. shared memory region для inputs и RNG state.
+
+У каждого worker process собственные pipe и shared memory region.
+
+RPC pipe используется coordinator для управления worker process: передачи fuzzing/minimization instructions. Worker через тот же channel возвращает results: expanded ли coverage, произошёл ли crash, успешно ли выполнена minimization и т. д.
+
+Shared memory region используется для передачи specific information между coordinator и worker.
+
+Coordinator записывает туда corpus entry для fuzzing, а worker сохраняет current RNG state.
+
+RNG state позволяет coordinator reconstruct mutations, применённые worker к input после завершения target. Reconstruction работает как при clean worker exit, так и после crash.
 
 ## Input selection
 
-Текущий coordinator не применяет sophisticated priority scheduling: циклически проходит corpus. Отдельной global corpus minimization (не путать с minimization одного input) также нет в описанной implementation.
+Coordinator сейчас не реализует advanced input prioritization. Он циклически проходит весь corpus и после последнего entry начинает сначала.
+
+Также coordinator не выполняет corpus minimization — это не то же самое, что [input minimization](#input-minimization), описанная ниже.
 
 ## Coverage guidance
 
-Instrumentation использует libFuzzer-compatible inline 8-bit coverage counters на code edges.
+Fuzzer использует [libFuzzer-compatible inline 8-bit coverage counters](https://clang.llvm.org/docs/SanitizerCoverage.html#inline-8bit-counters).
 
-Counters могут overflow; coverage interpretation quantizes counts к powers of two. Engine хранит bit information о достигнутых quantized counter levels и считает input interesting, если он расширяет такую coverage state.
+Counters вставляются compiler на каждом code edge и increment'ятся при входе.
 
-Поскольку instrumentation вставляется широко, unrelated goroutines могут создавать noise. Worker уменьшает noise:
+Counters специально не защищены от overflow, чтобы не насыщаться.
 
-- resets counters непосредственно перед target;
-- snapshots сразу после target;
-- не инструментирует набор noisy foundational packages.
+Как в AFL и libFuzzer, при tracking coverage counter values quantize'ятся до ближайшей power of two. Это позволяет отличать незначительные от значимых изменений execution flow.
 
-В documented exclusion list входят:
+Для tracking этих changes fuzzer хранит slice bytes, mapped на inline counters. Bits каждого byte показывают, существует ли хотя бы один corpus input, который increment'ит соответствующий counter не менее `2^bit-position` раз.
 
-```text
-context
-internal/fuzz
-reflect
-runtime
-sync
-sync/atomic
-syscall
-testing
-time
-```
+Если inputs достигают всех quantized values, bytes могут saturate'иться, после чего соответствующий counter больше не даёт полезной coverage information.
+
+Поскольку counters вставляются на every edge при compilation, instrumented оказывается и code вне fuzz target. Поэтому worker может увидеть coverage expansion, не связанную с target — например, когда новая branch выполняется в unrelated goroutine.
+
+Worker уменьшает noise двумя способами:
+
+1. reset'ит все counters непосредственно перед fuzz target и snapshot'ит их сразу после return target;
+2. explicit исключает packages, которые особенно likely создавать noise.
+
+Counters не вставляются в следующие packages:
+
+- `context`;
+- `internal/fuzz`;
+- `reflect`;
+- `runtime`;
+- `sync`;
+- `sync/atomic`;
+- `syscall`;
+- `testing`;
+- `time`.
 
 ## Mutation engine
 
-Для каждого corpus entry worker применяет последовательность mutations. После нескольких mutations input reset'ится к initial state, чтобы не уходить слишком далеко от useful seed.
+Когда worker получает новый input, он применяет mutation перед execution target.
 
-Пример conceptual mutation chain:
+После каждой mutation target запускается с новым input. Если coverage не расширилась, применяются дополнительные mutations.
+
+Чтобы input не отклонялся слишком далеко от initial state, после **пяти mutations** он reset'ится в original state, после чего mutation sequence продолжается заново.
+
+Для input `hello world` strategy может выглядеть так:
 
 ```text
-hello world
-kello world
-world kello
-world ke
-owrld ke
-owrldx ke
-ello world   // reset + new mutation
+0. hello world [initial state]
+1. kello world [replace first byte]
+2. world kello [swap two chunks]
+3. world ke    [delete last three bytes]
+4. owrld ke    [shuffle first three bytes]
+5. owrldx ke   [insert random byte]
+6. ello world  [reset to initial state, delete first byte]
+...
 ```
 
-Mutators стараются bias'ить к меньшим inputs, чтобы corpus не разрастался слишком быстро.
+Mutators имеют bias в сторону smaller inputs, а не larger, чтобы corpus size не рос слишком быстро.
 
-`[]byte`/`string` имеют больше mutation strategies; integer/uint/float types — меньший специализированный набор.
+Для `[]byte` и `string` существует много mutators; для `int`, `uint` и `float` types — меньше специализированных mutators.
 
-В описанной implementation отсутствуют advanced execution-driven comparison solving и dictionary-based mutators.
+Сейчас не реализованы:
+
+- execution-driven mutation strategies, например input-to-comparison correspondence;
+- dictionary-based mutators.
 
 ## Input minimization
 
-Interesting/recoverable failing input уменьшается, сохраняя исходный coverage/failure condition.
+Чтобы corpus не разрастался и не замедлял fuzzer как с точки зрения performance, так и с точки зрения probability mutation попасть в interesting data, каждый discovered input, который расширяет coverage или вызывает recoverable crash, пытаются minimize.
 
-High-level strategy:
+Non-recoverable crashes, например memory exhaustion, не minimiz'ятся, поскольку process был бы слишком медленным.
 
-1. отрезать экспоненциально уменьшающиеся chunks с конца;
-2. пробовать удалять отдельные bytes;
-3. пробовать удалять subsets;
-4. заменять non-human-readable bytes на printable ASCII там, где condition сохраняется.
+Minimization strategy достаточно проста: последовательно удалять bytes из input, сохраняя initial coverage/failure condition.
 
-Цель — smaller reproducible corpus: меньше disk/cache cost, быстрее future fuzzing и проще diagnosis.
+Порядок:
+
+1. попытаться удалить с конца input exponentially decreasing chunk bytes;
+2. попытаться удалить каждый individual byte;
+3. попытаться удалить каждый possible subset bytes;
+4. попытаться заменить каждый non-human-readable byte на human-readable byte, то есть byte из ASCII set.

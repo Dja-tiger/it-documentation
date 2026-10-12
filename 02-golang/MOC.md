@@ -19,7 +19,7 @@ translation_status: "in_progress"
 - [[docs/manage-install|Управление версиями Go]]
 - [[docs/getting-started|Getting Started]]
 - [[docs/code|Как писать Go-код]]
-- [Сборка и установка Go из исходников — upstream](https://go.dev/doc/install/source) — локальное зеркало пока отсутствует.
+- [[docs/install-source|Сборка и установка Go из исходников]]
 - [[docs/editors|Editor plugins и IDE]]
 
 ## Язык и стиль

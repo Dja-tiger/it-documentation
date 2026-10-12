@@ -19,6 +19,7 @@
 7. [[../../docs/tutorial/greetings-multiple-people|Multiple people / map]].
 8. [[../../docs/tutorial/add-a-test|Add a test]].
 9. [[../../docs/tutorial/compile-install|Compile and install]].
+10. [[../../docs/tutorial/module-conclusion|Module tutorial conclusion]].
 
 ## Что необходимо понять
 
@@ -29,6 +30,7 @@
 - [ ] `go mod init`, `go mod tidy`, `go run`, `go test`, `go build`, `go install`.
 - [ ] зачем нужны `go.mod` и `go.sum`.
 - [ ] local dependency через `replace` — только как знакомство.
+- [ ] как вся официальная цепочка tutorial связывает два modules и подводит к dependency/module documentation.
 
 ## Что НЕ нужно пока изучать
 
@@ -56,6 +58,7 @@
 3. Когда возникает `go.sum`?
 4. Чем `go build` отличается от `go install`?
 5. Почему lowercase identifier недоступен из другого package?
+6. К каким module/dependency guides направляет conclusion официального tutorial и почему их пока не нужно читать раньше базового языка?
 
 ## Практическая проверка
 
@@ -69,7 +72,8 @@
 - объяснить package/module/import path;
 - запустить test/build;
 - прочитать basic compiler error и исправить его;
-- повторить основную tutorial-chain своими именами/types.
+- повторить основную tutorial-chain своими именами/types;
+- объяснить, где заканчивается introductory module tutorial и начинается системное изучение modules/dependencies.
 
 ## Следующий этап
 

@@ -77,6 +77,7 @@ translation_status: "in_progress"
 5. [[docs/tutorial/greetings-multiple-people|Несколько имён и map]]
 6. [[docs/tutorial/add-a-test|Добавление unit test]]
 7. [[docs/tutorial/compile-install|Сборка и установка приложения]]
+8. [[docs/tutorial/module-conclusion|Заключение tutorial по Go modules]]
 
 ### Остальные tutorials
 

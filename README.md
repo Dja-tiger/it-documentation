@@ -19,15 +19,18 @@
 ## Разделы
 
 1. [[01-apache-iceberg/MOC|Apache Iceberg]] — baseline `1.12.0` (`apache-iceberg-1.12.0`).
-2. [[02-golang/MOC|Go / Golang]] — baseline `Go 1.27.1`; `golang/go@go1.27.1`, `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`.
+2. [[02-golang/MOC|Go / Golang]] — baseline `Go 1.27.1`; `golang/go@go1.27.1`, `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`; статус раздела: `in_progress` после full-fidelity review от 2026-10-12.
 
 ## Статусы перевода
 
 - `todo` — перевод не начат;
-- `in_progress` — перевод выполняется;
+- `in_progress` — перевод выполняется, неполон либо требует восстановления полного соответствия upstream;
 - `translated` — полный перевод выполнен;
-- `reviewed` — перевод дополнительно проверен;
+- `reviewed` — полный перевод дополнительно сверен с зафиксированным upstream;
 - `outdated` — upstream изменился после перевода.
+
+> [!important]
+> Краткий пересказ, конспект или сокращённая адаптация не считаются статусом `translated`. Для полного перевода должны сохраняться все существенные разделы, пояснения, примеры, warnings/notes и code blocks исходного документа.
 
 > [!note]
 > Это неофициальная русскоязычная база переводов. Она не является официальной документацией Apache Software Foundation, The Go Authors или других upstream-проектов.

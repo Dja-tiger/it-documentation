@@ -20,7 +20,7 @@
   },
   "quality_review": {
     "status": "in_progress",
-    "reason": "A manual source-to-destination sample found condensed translations where repository policy requires full translations. The section must not be considered complete until each page is reviewed against its pinned upstream source.",
+    "reason": "The original translation pass condensed some source documents. Full-fidelity restoration is being completed page by page against the pinned upstream revisions.",
     "reviewed_documents": [
       "docs/contribute.md",
       "docs/database/cancel-operations.md",
@@ -32,31 +32,37 @@
       "docs/database/prepared-statements.md",
       "docs/database/querying.md",
       "docs/database/sql-injection.md",
+      "docs/getting-started.md",
       "docs/install-source.md",
       "docs/tutorial/add-a-test.md",
       "docs/tutorial/call-module-code.md",
       "docs/tutorial/compile-install.md",
       "docs/tutorial/create-module.md",
+      "docs/tutorial/database-access.md",
+      "docs/tutorial/fuzz.md",
+      "docs/tutorial/generics.md",
+      "docs/tutorial/govulncheck.md",
       "docs/tutorial/greetings-multiple-people.md",
       "docs/tutorial/handle-errors.md",
+      "docs/tutorial/json.md",
       "docs/tutorial/module-conclusion.md",
-      "docs/tutorial/random-greeting.md"
+      "docs/tutorial/random-greeting.md",
+      "docs/tutorial/web-service-gin.md",
+      "docs/tutorial/workspaces.md"
     ],
     "sampled_documents_requiring_full_fidelity_review": [
       "docs/spec.md",
       "docs/comment.md",
-      "docs/build-cover.md",
-      "docs/tutorial/database-access.md",
-      "docs/tutorial/fuzz.md"
+      "docs/build-cover.md"
     ],
     "frontmatter_note": "Individual pages may still carry historical translation_status=translated. Until a page receives a source-parity review, that value must not be interpreted as reviewed full fidelity."
   },
   "coverage": {
-    "getting_started": "present_unreviewed",
+    "getting_started": "reviewed",
     "language_and_style": "present_unreviewed",
     "modules_and_toolchain": "partial_missing_module_reference",
     "runtime_and_performance": "present_unreviewed",
-    "tutorials": "partial_reviewed",
+    "tutorials": "reviewed",
     "database_sql": "reviewed",
     "security": "present_unreviewed",
     "go_1_27_release_notes": "present_unreviewed",

@@ -8,11 +8,109 @@
     "website_ref": "575a6925e2d55ad160ed77f402bfaa4ec7458749",
     "captured_at": "2026-10-12"
   },
-  "scope": "Official textual documentation from go.dev/doc and core language/runtime references from golang/go/doc. Generated pkg.go.dev standard-library API is tracked separately.",
-  "status": "in_progress",
-  "generated_api": {
-    "url": "https://pkg.go.dev/std",
-    "translation_status": "external_generated_reference"
+  "scope": "Current official textual Go documentation from go.dev/doc, current security documentation, and normative/core references from golang/go. Generated API documentation and interactive resources are tracked separately as canonical external references.",
+  "status": "translated",
+  "coverage": {
+    "getting_started": "translated",
+    "language_and_style": "translated",
+    "modules_and_toolchain": "translated",
+    "runtime_and_performance": "translated",
+    "tutorials": "translated",
+    "database_sql": "translated",
+    "security": "translated",
+    "go_1_27_release_notes": "translated",
+    "contribution_guide": "translated"
   },
-  "documents": []
+  "translated_documents": [
+    "docs/install.md",
+    "docs/manage-install.md",
+    "docs/getting-started.md",
+    "docs/code.md",
+    "docs/effective-go.md",
+    "docs/spec.md",
+    "docs/memory-model.md",
+    "docs/faq.md",
+    "docs/comment.md",
+    "docs/gc-guide.md",
+    "docs/pgo.md",
+    "docs/diagnostics.md",
+    "docs/race-detector.md",
+    "docs/godebug.md",
+    "docs/asm.md",
+    "docs/build-cover.md",
+    "docs/editors.md",
+    "docs/jsonv2-migration.md",
+    "docs/articles/wiki.md",
+    "docs/contribute.md",
+    "docs/install-source.md",
+    "docs/modules/reference.md",
+    "docs/modules/developing.md",
+    "docs/modules/managing-dependencies.md",
+    "docs/modules/gomod-ref.md",
+    "docs/modules/layout.md",
+    "docs/modules/managing-source.md",
+    "docs/modules/publishing.md",
+    "docs/modules/version-numbers.md",
+    "docs/modules/major-version.md",
+    "docs/modules/release-workflow.md",
+    "docs/toolchain.md",
+    "docs/tutorial/create-module.md",
+    "docs/tutorial/call-module-code.md",
+    "docs/tutorial/generics.md",
+    "docs/tutorial/workspaces.md",
+    "docs/tutorial/fuzz.md",
+    "docs/tutorial/database-access.md",
+    "docs/tutorial/web-service-gin.md",
+    "docs/tutorial/json.md",
+    "docs/tutorial/govulncheck.md",
+    "docs/database/index.md",
+    "docs/database/open-handle.md",
+    "docs/database/querying.md",
+    "docs/database/change-data.md",
+    "docs/database/prepared-statements.md",
+    "docs/database/execute-transactions.md",
+    "docs/database/cancel-operations.md",
+    "docs/database/manage-connections.md",
+    "docs/database/sql-injection.md",
+    "docs/security/index.md",
+    "docs/security/best-practices.md",
+    "docs/security/policy.md",
+    "docs/security/fips140.md",
+    "docs/security/decisions.md",
+    "docs/security/threat-model.md",
+    "docs/security/ide.md",
+    "docs/security/cna.md",
+    "docs/security/fuzz/index.md",
+    "docs/security/fuzz/technical.md",
+    "docs/security/vuln/index.md",
+    "docs/security/vuln/database.md",
+    "docs/release-notes/go1.27.md"
+  ],
+  "external_or_generated_references": [
+    {
+      "name": "Standard library API",
+      "url": "https://pkg.go.dev/std",
+      "translation_status": "external_generated_reference"
+    },
+    {
+      "name": "Command documentation",
+      "url": "https://pkg.go.dev/cmd",
+      "translation_status": "external_generated_reference"
+    },
+    {
+      "name": "A Tour of Go",
+      "url": "https://go.dev/tour/",
+      "translation_status": "external_interactive_reference"
+    },
+    {
+      "name": "Historical release archive",
+      "url": "https://go.dev/doc/devel/release",
+      "translation_status": "external_historical_reference"
+    }
+  ],
+  "notes": [
+    "The historical upstream FAQ contains statements that became outdated in Go 1.27; the Russian version explicitly marks and corrects the generic-methods change against the Go 1.27.1 specification.",
+    "Code, identifiers, command names, API names, configuration keys, and protocol tokens are preserved in their canonical form.",
+    "SQL examples follow the repository convention with SQL keywords in lowercase."
+  ]
 }

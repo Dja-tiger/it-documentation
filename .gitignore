@@ -1,0 +1,12 @@
+.DS_Store
+Thumbs.db
+
+# Локальное состояние Obsidian
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache/
+.trash/
+
+# IDE
+.idea/
+.vscode/

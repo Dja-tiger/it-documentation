@@ -5,75 +5,142 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/decisions.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Go Security Decisions
 
-Справочник классификационных решений Go Security Team. Главная идея: **не каждый bug — vulnerability**. Возможность придумать гипотетическую систему, где любой bug становится security-sensitive, недостаточна для security classification; иначе reports превращаются в шум.
+## Обзор {#overview}
 
-Severity также context-dependent, поэтому Go team не считает generic severity score универсальной характеристикой.
+Этот документ содержит решения Go Security team по различным часто сообщаемым issues. В основном он служит reference для случаев, которые team **не считает vulnerability**.
 
-## Что считается vulnerability
+Список не является исчерпывающим.
 
-### Remote Code Execution
+## Общие принципы {#principles}
 
-Unexpected attacker-triggered code execution — PRIVATE-track vulnerability и имеет приоритет над другими classification rules.
+Не каждый bug является vulnerability.
+
+Практически для любого bug можно придумать hypothetical scenario, в котором он приводит к vulnerability.
+
+Например, представим bug в image decoder, из-за которого некоторые inputs decode'ятся неправильно. Теперь представим hypothetical system, принимающую фотографии бумажных cheques и выполняющую bank transfers для их оплаты. Если system содержит gateway, который validates request, и backend, который выполняет transfer, parser differential между image decoders gateway и backend может привести к тому, что gateway пропустит malicious operation в backend.
+
+Классифицировать image misparsing bug как vulnerability только на основании такого scenario бесполезно. Warning users о «vulnerability» такого рода создаёт шум, поскольку почти никто из users реально не затронут.
+
+Такое использование термина даже вредит security: users привыкают считать reports в основном бессмысленными и начинают их игнорировать.
+
+Этот example также объясняет, почему Go team не назначает severity labels security issues. Для hypothetical cheque processor issue может быть high severity, но для большинства users это вообще не issue.
+
+Общий принцип: одной лишь возможности построить hypothetical scenario, где bug приводит к security issue, недостаточно, чтобы сам bug обрабатывался как security issue.
+
+## Vulnerabilities {#vulns}
+
+### Remote Code Execution {#rce}
+
+Scenario, позволяющий attacker выполнять code там, где code execution не ожидается, является PRIVATE-track vulnerability.
+
+Это правило имеет priority над всеми остальными decisions.
+
+Оно не относится к functions, назначение которых — выполнять code.
 
 В scope:
 
-- parser исполняет код из malicious input;
-- malicious HTTP request приводит к execution кода server process.
+- parse function исполняет code на malicious input;
+- malicious request заставляет HTTP server исполнять code.
 
-Не в scope: команда, назначение которой изначально состоит в выполнении attacker-controlled code/tests, например запуск `go test` над malicious test source.
+Не в scope:
 
-### Panics
+- command `go test` запускает tests. Запуск `go test` над attacker-controlled tests не входит в threat model.
 
-Panic на attacker-controlled input может быть vulnerability.
+### Panics {#panics}
 
-Обычно:
+Panic при processing attacker-controlled input может быть vulnerability.
 
-- server API, ожидающий untrusted requests → PRIVATE;
-- client API → PUBLIC;
-- parser plausible malicious formats (`archive/zip`, `image/png`) → PUBLIC.
+Panic в server, который должен обрабатывать attacker-controlled requests, например `net/http` server, обычно является PRIVATE-track vulnerability.
 
-Panic только из-за естественно огромного valid input обычно не vulnerability. Invalid input в API, не предназначенный для parsing untrusted data, обычно также вне security process.
+Panic в client, например `net/http` client, обычно является PUBLIC-track vulnerability.
 
-Deprecated API имеет более высокий bar; panic/resource exhaustion там policy не считает vulnerability.
+Panic в parse function package, работающего с plausibly malicious input, например `archive/zip` или `image/png`, обычно является PUBLIC-track vulnerability.
 
-### Excessive resource consumption
+Input, вызывающий panic из-за своего естественного размера, например очень большое image, обычно не классифицируется как vulnerability.
 
-Pathological CPU/memory growth (например `O(n²)` на attacker-controlled input) обычно оценивается примерно как panic/DoS.
+Invalid inputs для functions, которые явно не предназначены для parsing potentially malicious data, находятся вне threat model и обычно не рассматриваются как security bugs.
 
-### Build safety
+Например, image **parsers** должны защищаться от invalid inputs, но panic в image **encoder** может быть bug, не являясь vulnerability.
 
-Сборка untrusted Go code должна быть безопасной как defense-in-depth: build не должен неожиданно исполнять attacker code.
+Panic в deprecated function не считается vulnerability; см. decision по [deprecated APIs](#deprecated).
 
-Security issue: malicious module заставляет `go build` выполнить arbitrary code.
+### Excessive resource consumption {#quadratic}
 
-Не security issue в этой threat model:
+Excessive CPU или memory consumption, например function с runtime `O(n²)` относительно input size, обычно рассматривается так же, как panic.
 
-- build error раскрывает text local file;
-- output binary содержит local file contents;
-- запущенная malicious program ломает runtime state;
-- compiler bug только помогает obfuscation malicious code.
+### Сборка malicious code {#malicious-build}
 
-Build untrusted code всё равно рекомендуется выполнять в unprivileged sandbox.
+Сборка attacker-controlled program должна быть безопасной, даже если запуск такой program небезопасен.
 
-## Что обычно не считается vulnerability
+Например, предполагается, что untrusted code можно безопасно **собрать**, после чего запускать его в sandbox.
 
-### Attacker уже управляет environment
+При этом Go team настоятельно рекомендует считать это defense-in-depth measure и выполнять сам build untrusted code также в unprivileged sandbox environment.
 
-Если attack требует control OS/filesystem/PATH/environment variables/memory process, это вне модели: local system считается trusted boundary.
+**Data exfiltration не входит в threat model.** Сборка attacker-controlled program может создать output, содержащий contents arbitrary local files.
 
-### Deprecated APIs
+**Execution malicious code также не входит в threat model.** Запущенная malicious program очевидно может выполнять malicious actions.
 
-Panic или excessive resource consumption в deprecated API не обрабатываются как vulnerability. Security-hardening users должны переходить на supported APIs.
+Vulnerability, обычно PRIVATE track:
 
-### Large images
+- malicious module заставляет `go build` выполнить arbitrary code.
 
-Хорошо сжатое огромное изображение может потребовать огромный uncompressed buffer. Это естественное свойство input, не vulnerability само по себе. При untrusted images сначала проверяйте dimensions через `image.DecodeConfig` и применяйте application limits.
+Не обрабатываются как security issues:
 
-### `net/http` redirects
+- `go build` выводит error, содержащий text arbitrary local file;
+- compiled executable содержит contents arbitrary local file;
+- malicious program может повредить runtime state и выполнить arbitrary code;
+- compilation bug позволяет obfuscate malicious code.
 
-HTTP client stripping sensitive headers при redirects — defense-in-depth. Поведение same-origin/subdomain имеет compatibility implications, а сам open redirect обычно находится на server side. Поэтому Go policy выводит детали redirect sanitization из security bug process, чтобы не ломать users risky emergency changes.
+## Non-Vulnerabilities {#non-vuln}
+
+### Attacker-controlled environment {#attacker-control}
+
+Если attack требует, чтобы attacker уже контролировал environment, в котором работает program, это не vulnerability.
+
+Сюда, среди прочего, относятся возможности:
+
+- добавлять programs в `$PATH`;
+- задавать arbitrary environment variables.
+
+### Deprecated APIs {#deprecated}
+
+Порог, при котором bug deprecated API считается security issue, выше, чем для supported API.
+
+В частности, panic или excessive resource consumption в deprecated API **никогда** не обрабатываются как vulnerability.
+
+Users, которым требуется security hardening, должны использовать supported APIs.
+
+### `image`, `x/image`: большие images {#large-image}
+
+Parsing большого image может потребовать большой объём memory.
+
+Например, 65536×65536 image с 32-bit color требует 16 GiB для хранения uncompressed.
+
+Многие image compression formats способны сжать большое простое image до очень маленького file size. Поэтому decoding маленького file может выделить огромное количество memory.
+
+Users, parsing'ящие untrusted images, должны проверять image size до decoding, например через [`image.DecodeConfig`](https://pkg.go.dev/image#DecodeConfig).
+
+Go team не считает vulnerability ситуацию, когда image parsing function корректно decodes очень большое, хорошо сжатое image.
+
+### `net/http`: redirects {#http-redirect}
+
+HTTP client package `net/http` обрабатывает redirects и содержит security-relevant behavior.
+
+Например, он удаляет header `Authorization` при redirect на domain, который не является subdomain или exact match initial request domain.
+
+Header stripping — defense-in-depth measure, защищающая от ситуации, когда misconfigured или compromised server случайно пересылает client request с sensitive headers на untrusted destination.
+
+Сам по себе failure удалить headers при redirect не позволяет attacker получить credentials из headers. Но его можно объединить с другими vulnerabilities, например open redirect на server, и добиться такого результата.
+
+Изменение HTTP client behavior имеет высокий risk сломать existing users, зависящих от текущего поведения.
+
+Например, current same-origin policy client разрешает subdomains: redirect с `example.com` на `www.example.com` сохраняет headers, тогда как WHATWG Fetch standard этого не делает.
+
+Возможно, align client со standard полезно, но делать это в security release скорее причинит existing users проблемы, чем исправит реальные vulnerabilities.
+
+Поскольку redirect sanitization является defense-in-depth, а изменение behavior рискованно, **все аспекты HTTP client redirects считаются вне security bug process**.

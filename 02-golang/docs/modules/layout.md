@@ -1,20 +1,26 @@
 ---
-title: "Организация Go-модуля"
+title: "Организация Go module"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/layout.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Организация Go-модуля
+# Организация Go module
 
-Один из частых вопросов при знакомстве с Go — как организовать файлы и каталоги проекта. Go не требует единственного шаблона: layout зависит от того, является проект library package, executable command, набором нескольких packages/commands или server application.
+Частый вопрос developers, недавно пришедших в Go: «Как организовать Go project с точки зрения files и folders?» Цель этого документа — дать guidelines, помогающие на него ответить.
 
-## Базовый package
+Чтобы извлечь максимум пользы, сначала ознакомьтесь с основами Go modules через [[../tutorial/create-module|tutorial]] и [[managing-source|Управление source module]].
 
-Простой Go package может целиком находиться в корне проекта. Проект состоит из одного module и одного package. Package name обычно совпадает с последним компонентом module path.
+Go projects могут включать packages, command-line programs или сочетание того и другого. Guide организован по type проекта.
+
+### Базовый package
+
+Простой Go package может хранить весь code в root directory проекта. Project состоит из одного module, который состоит из одного package. Package name совпадает с последним component module path.
+
+Для самого простого package с одним Go file:
 
 ```text
 project-root-directory/
@@ -23,7 +29,10 @@ project-root-directory/
   modname_test.go
 ```
 
-Если repository расположен по адресу `github.com/someuser/modname`, `go.mod` содержит:
+> [!note]
+> Во всём документе file/package names выбраны произвольно.
+
+Если directory опубликован в GitHub repository `github.com/someuser/modname`, `module` line в `go.mod` должна быть:
 
 ```text
 module github.com/someuser/modname
@@ -33,15 +42,17 @@ module github.com/someuser/modname
 
 ```go
 package modname
+
+// ... package code here
 ```
 
-Пользователь импортирует package так:
+Users импортируют package:
 
 ```go
 import "github.com/someuser/modname"
 ```
 
-Один package можно разделять на несколько `.go` files одного каталога:
+Package можно разделить на несколько files в одном directory:
 
 ```text
 project-root-directory/
@@ -54,11 +65,13 @@ project-root-directory/
   hash_test.go
 ```
 
-Все эти файлы объявляют `package modname`.
+Все files в directory объявляют `package modname`.
 
-## Базовый command
+### Базовая command
 
-Самый простой executable может состоять из одного файла с `func main`. Более крупный command можно разделить на несколько файлов, каждый из которых объявляет `package main`:
+Структура executable program / command-line tool зависит от complexity и объёма code.
+
+Самая простая program может состоять из одного Go file с `func main`. Более крупная program может быть разделена на несколько files, все с `package main`:
 
 ```text
 project-root-directory/
@@ -69,21 +82,29 @@ project-root-directory/
   main.go
 ```
 
-Наличие `func main` именно в `main.go` — соглашение, а не требование языка.
+`main.go` содержит `func main`, но имя file — только convention. Он может называться `modname.go` или как угодно ещё.
 
-При module path `github.com/someuser/modname` пользователь устанавливает программу:
+Если repository находится по `github.com/someuser/modname`, `go.mod` содержит:
+
+```text
+module github.com/someuser/modname
+```
+
+User может установить command:
 
 ```bash
 go install github.com/someuser/modname@latest
 ```
 
-## Package или command со вспомогательными packages
+### Package или command с supporting packages
 
-Для более крупных проектов часть логики можно вынести во вспомогательные packages. На начальном этапе официальный guide рекомендует помещать такие packages в `internal/`.
+Крупному package или command может быть удобно вынести часть functionality в supporting packages.
 
-Go запрещает packages из других modules импортировать код, находящийся за границей разрешённого `internal` scope. Поэтому internal API можно свободнее рефакторить без обязательства поддерживать его для внешних пользователей.
+На первом этапе рекомендуется помещать такие packages в directory `internal`. Go [запрещает](https://pkg.go.dev/cmd/go#hdr-Internal_Directories) другим modules импортировать packages, которые вы не обязательно хотите публично expose и поддерживать.
 
-Пример library module:
+Поскольку external projects не могут импортировать code из `internal`, его API можно refactor'ить и перемещать без breaking changes для external users.
+
+Пример package project:
 
 ```text
 project-root-directory/
@@ -99,17 +120,19 @@ project-root-directory/
   modname_test.go
 ```
 
-Корневой package может импортировать internal package:
+`modname.go` объявляет `package modname`, `auth.go` — `package auth` и т. д.
+
+Root package может импортировать internal package:
 
 ```go
 import "github.com/someuser/modname/internal/auth"
 ```
 
-Для command layout аналогичен, только root files объявляют `package main`.
+Layout command с supporting packages в `internal` почти тот же, кроме того, что root Go files объявляют `package main`.
 
-## Несколько packages
+### Несколько packages
 
-Один module может содержать несколько importable packages, организованных иерархически:
+Module может содержать несколько importable packages. Каждый package находится в собственном directory, а hierarchy может быть вложенной:
 
 ```text
 project-root-directory/
@@ -129,26 +152,31 @@ project-root-directory/
       trace.go
 ```
 
-При module path:
+При:
 
 ```text
 module github.com/someuser/modname
 ```
 
-доступны import paths:
+root package `modname` импортируется:
 
 ```go
 import "github.com/someuser/modname"
+```
+
+Subpackages:
+
+```go
 import "github.com/someuser/modname/auth"
 import "github.com/someuser/modname/auth/token"
 import "github.com/someuser/modname/hash"
 ```
 
-`internal/trace` нельзя импортировать извне допустимого internal scope. Рекомендуется оставлять непубличную функциональность в `internal` настолько долго, насколько это практично.
+Package `internal/trace` нельзя импортировать за пределами module. Рекомендуется сохранять packages в `internal`, пока не требуется сознательно поддерживать их как public API.
 
-## Несколько commands
+### Несколько commands
 
-Несколько программ в одном repository обычно получают отдельные каталоги:
+Несколько programs в одном repository обычно имеют отдельные directories:
 
 ```text
 project-root-directory/
@@ -161,20 +189,20 @@ project-root-directory/
     main.go
 ```
 
-Каждый command directory содержит `package main`. Общий top-level `internal` может хранить shared code.
+В каждом command directory Go files объявляют `package main`. Top-level `internal` может содержать shared packages всех commands repository.
 
-Установка:
+Installation:
 
 ```bash
 go install github.com/someuser/modname/prog1@latest
 go install github.com/someuser/modname/prog2@latest
 ```
 
-Распространённое соглашение — складывать commands в каталог `cmd/`. Это особенно полезно, если repository одновременно содержит public packages и commands.
+Распространённая convention — хранить все commands в directory `cmd`. Это не строго необходимо, если repository состоит только из commands, но особенно полезно в mixed repository с importable packages и commands.
 
-## Packages и commands в одном repository
+### Packages и commands в одном repository
 
-Пример смешанного repository:
+Пример mixed repository:
 
 ```text
 project-root-directory/
@@ -193,25 +221,27 @@ project-root-directory/
       main.go
 ```
 
-Packages можно импортировать:
+Если module называется `github.com/someuser/modname`, users могут импортировать packages:
 
 ```go
 import "github.com/someuser/modname"
 import "github.com/someuser/modname/auth"
 ```
 
-Commands — устанавливать:
+и устанавливать programs:
 
 ```bash
 go install github.com/someuser/modname/cmd/prog1@latest
 go install github.com/someuser/modname/cmd/prog2@latest
 ```
 
-## Server project
+### Server project
 
-Go часто используется для servers. Единого server layout нет: реальные проекты включают REST/gRPC, deployment manifests, frontend assets, containers, scripts и другие компоненты.
+Go часто используется для servers. Структуры таких projects сильно различаются из-за множества дополнительных аспектов: REST/gRPC protocols, deployments, frontend files, containers, scripts и другое. Здесь рассматривается только Go-part проекта.
 
-Server обычно является self-contained binary или группой binaries и не обязан экспортировать reusable packages. Поэтому официальный guide рекомендует держать реализацию server logic в `internal`, а commands — в `cmd`:
+Server projects обычно не предоставляют packages для external import: server чаще является self-contained binary или набором binaries. Поэтому Go packages, реализующие server logic, рекомендуется хранить в `internal`.
+
+Так как repository server часто содержит множество directories с non-Go files, commands удобно собирать в `cmd`:
 
 ```text
 project-root-directory/
@@ -228,7 +258,8 @@ project-root-directory/
       main.go
     metrics-analyzer/
       main.go
-  ... other non-Go project directories
+    ...
+  ... the project's other directories with non-Go code
 ```
 
-Если со временем часть server code превращается в действительно reusable library для других проектов, её лучше вынести в отдельный module.
+Если в server repository со временем появляются packages, полезные другим projects, их лучше выделить в отдельные modules.

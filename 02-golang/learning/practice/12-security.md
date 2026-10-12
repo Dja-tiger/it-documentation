@@ -4,11 +4,25 @@
 
 ### Условие
 
-Для `pricing-api` собрать repeatable local/CI sequence.
+Собрать repeatable local/CI security-oriented quality sequence для `pricing-api`.
+
+### Входные данные
+
+Текущий source tree и dependencies project.
+
+### Ожидаемое поведение
+
+Formatting/tests/race/vet/vulnerability checks имеют reproducible commands и ненулевой exit code при finding/failure.
+
+### Ограничения
+
+Fuzzing запускается отдельным bounded job/time budget; scanner output не заменяет manual risk review.
 
 ### Acceptance criteria
 
-Минимум:
+Минимальный gate документирован и запускается одной CI/job последовательностью.
+
+### Команды проверки
 
 ```bash
 gofmt -w .
@@ -18,60 +32,117 @@ go vet ./...
 govulncheck ./...
 ```
 
-Fuzz targets запускаются отдельным bounded job/budget.
-
 ## Задание 2. Threat model pricing API
 
 ### Условие
 
-Описать таблицей:
+Описать assets, entry points, trust boundaries, failure/attack classes, preventive controls и telemetry.
 
-- asset/data;
-- entry point;
-- trusted/untrusted side;
-- failure/attack class;
-- preventive control;
-- detection/telemetry.
+### Входные данные
 
-### Обязательные boundaries
+HTTP JSON, file/CSV, DB, external pricing API, environment/secrets, logs и dependencies.
 
-HTTP JSON, file/CSV input, database, external pricing API, environment/secrets, logs, dependencies.
+### Ожидаемое поведение
+
+Получается компактная model, связанная с реальной архитектурой, а не generic checklist.
+
+### Ограничения
+
+Обязательно включить resource exhaustion, integrity/idempotency и secret leakage; не требуется формальный enterprise framework.
+
+### Acceptance criteria
+
+Для каждого обязательного boundary есть минимум один risk и control/detection strategy.
+
+### Команды проверки
+
+```bash
+grep -n "HTTP\|CSV\|database\|secret\|dependenc" README.md
+```
 
 ## Задание 3. Input limits
 
 ### Условие
 
-Добавить explicit limits на HTTP body, batch size, string lengths/identifier format и processing timeout.
+Добавить explicit limits на HTTP body, batch size, identifier/string length/format и processing timeout.
+
+### Входные данные
+
+Values ровно на limit, limit+1, malformed identifiers и oversized body.
+
+### Ожидаемое поведение
+
+Boundary input принимается/отклоняется согласно contract; oversized workload останавливается до expensive processing.
+
+### Ограничения
+
+Error response не раскрывает stack/DSN/internal details; limits configurable только в безопасном диапазоне.
 
 ### Acceptance criteria
 
-Boundary tests проверяют ровно limit, limit+1 и malformed input. Error contract не раскрывает internal stack/DSN.
+Tests на `limit-1`, `limit`, `limit+1` для ключевых boundaries.
+
+### Команды проверки
+
+```bash
+go test -run TestInputLimits -v ./...
+go test -race -run TestInputLimits ./...
+```
 
 ## Задание 4. Dependency vulnerability drill
 
-Использовать официальный isolated [[../../docs/tutorial/govulncheck|govulncheck tutorial]] или отдельный throwaway module. Не понижать dependencies production project намеренно.
+### Условие
+
+Использовать официальный isolated [[../../docs/tutorial/govulncheck|govulncheck tutorial]] или throwaway module для vulnerable dependency experiment.
+
+### Входные данные
+
+Dependency/version из official tutorial с известным finding и fixed version.
+
+### Ожидаемое поведение
+
+Уметь различить affected module, imported package, reachable vulnerable symbol и available fixed version.
+
+### Ограничения
+
+Не понижать production project dependency намеренно; experiment isolated.
 
 ### Acceptance criteria
 
-Объяснить difference:
+После scan можно объяснить reachability и remediation; isolated project обновлён/удалён после lab.
 
-- module affected;
-- package imported;
-- vulnerable symbol reachable;
-- fixed version available.
+### Команды проверки
+
+```bash
+govulncheck ./...
+go list -m all
+```
 
 ## Задание 5. Fuzz trust boundary
 
-Fuzz JSON/CSV parser/validation boundary. Invariants:
+### Условие
 
-- no unexpected panic;
-- bounded work для bounded input;
-- accepted object удовлетворяет domain validation;
-- parser не создаёт impossible state.
+Fuzz JSON/CSV parser + validation boundary.
 
-## Review questions
+### Входные данные
 
-- Можно ли attacker-controlled value попасть в SQL syntax?
-- Может ли один request запустить unbounded goroutines/memory allocation?
-- Может ли log содержать secret/raw payload?
-- Как application ведёт себя при dependency timeout/failure?
+Valid seeds и arbitrary mutations, включая empty/oversized-ish bounded strings, malformed Unicode/number formats и truncated payload.
+
+### Ожидаемое поведение
+
+No unexpected panic; accepted object удовлетворяет domain invariants; bounded input не запускает явно unbounded work.
+
+### Ограничения
+
+Fuzz time bounded; discovered crash сохраняется как regression; никакого network/production DB в fuzz loop.
+
+### Acceptance criteria
+
+Fuzz target стабильно запускается, имеет meaningful seeds/invariants и regression path.
+
+### Команды проверки
+
+```bash
+go test -fuzz=Fuzz -fuzztime=30s ./...
+go test ./...
+```

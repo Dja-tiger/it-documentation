@@ -42,7 +42,7 @@ translation_status: "in_progress"
 
 ## Модули и toolchain
 
-- [Go Modules Reference — upstream](https://go.dev/ref/mod) — локальное зеркало восстанавливается.
+- [[docs/modules/reference|Go Modules Reference]] — локальное зеркало; manifest отмечает дополнительный source-parity review.
 - [[docs/modules/developing|Разработка и публикация модулей]]
 - [[docs/modules/managing-dependencies|Управление зависимостями]]
 - [[docs/modules/gomod-ref|Справочник go.mod]]

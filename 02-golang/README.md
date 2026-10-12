@@ -14,9 +14,9 @@
 
 После технического ревью 2026-10-12 общий статус раздела — **`in_progress`**.
 
-Фактическое дерево `docs/` содержит 68 Markdown-документов. Навигация и manifest синхронизированы с этим деревом, однако выборочная сверка с upstream показала, что часть страниц пока представляет собой сокращённую локализацию, а не полный перевод исходного документа.
+Фактическое дерево `docs/` содержит 69 Markdown-документов. Навигация и manifest синхронизируются с этим деревом, однако full-fidelity review ещё продолжается: часть страниц уже имеет source-parity status `reviewed`, часть остаётся в повторной сверке или ещё не прошла её полностью.
 
-Поэтому наличие файла с историческим `translation_status: translated` ещё не означает, что он прошёл полный source-parity review.
+Поэтому наличие файла с историческим `translation_status: translated` само по себе не означает, что он прошёл полный source-parity review.
 
 Подробности: [[_meta/review-2026-10-12|техническое ревью раздела Go]].
 
@@ -28,7 +28,7 @@
 - организации Go-кода;
 - language specification и memory model;
 - Effective Go, FAQ и doc comments;
-- modules и toolchain;
+- modules, Go Modules Reference и toolchain;
 - diagnostics, race detector, GC, PGO, GODEBUG и assembler;
 - официальным tutorials;
 - `database/sql`;
@@ -38,13 +38,11 @@
 
 Документация standard library на `pkg.go.dev/std` генерируется из комментариев исходного кода тысяч API-symbols. Она учитывается отдельно как generated canonical reference и не смешивается с ручным переводом guides.
 
-## Известные отсутствующие локальные зеркала
+## Полнота локальных зеркал
 
-Пока не создан полный локальный перевод:
+На текущем snapshot manifest не содержит `pending_local_mirrors`. `docs/modules/reference.md` уже существует локально; при этом manifest отдельно фиксирует, что Go Modules Reference остаётся в дополнительном source-parity review из-за объёма upstream reference.
 
-- [Go Modules Reference](https://go.dev/ref/mod) → планируется `docs/modules/reference.md`.
-
-До появления этого файла навигация должна вести на официальный upstream, а не на несуществующий WikiLink.
+Фактическое дерево `docs/` является источником истины для наличия локальных документов.
 
 ## Навигация
 

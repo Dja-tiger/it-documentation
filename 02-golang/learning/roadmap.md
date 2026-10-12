@@ -73,13 +73,13 @@ Roadmap построен по mastery: календарное число дне�
 
 **Prerequisites:** небольшой тестируемый Go project.
 
-**Документы:** фактически существующий `docs/modules/*`, [[../docs/tutorial/workspaces|Workspaces]], [[../docs/toolchain|Toolchains]], [[../docs/modules/layout|Module layout]].
+**Документы:** [[../docs/modules/managing-dependencies|Managing dependencies]] → [[../docs/modules/gomod-ref|go.mod reference]] → [[../docs/modules/reference|Go Modules Reference]] выборочно → [[../docs/tutorial/workspaces|Workspaces]] → [[../docs/toolchain|Toolchains]] → остальные существующие `docs/modules/*` по необходимости.
 
 **Упражнения:** [[practice/05-modules-toolchain|Modules & toolchain]].
 
 **Project checkpoint:** привести `price-cli` к `cmd/` + `internal/` layout и воспроизводимому `go.mod`/`go.sum`.
 
-**Проходной критерий:** объяснить package vs module, `go.mod`, `go.sum`, MVS, `replace`, workspace и toolchain selection.
+**Проходной критерий:** объяснить package vs module, `go.mod`, `go.sum`, MVS, `replace`, workspace, proxy/checksum/private modules и toolchain selection.
 
 → [[stages/05-modules-packages-toolchain|Stage 5]]
 

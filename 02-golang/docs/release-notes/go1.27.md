@@ -5,309 +5,372 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/go1.27.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Go 1.27 Release Notes
 
-Go 1.27 released in August 2026, спустя шесть месяцев после Go 1.26. Большая часть изменений — implementation/toolchain/library improvements, но release содержит и заметные language changes.
+## Введение в Go 1.27 {#introduction}
 
-## Changes to the language
+Go 1.27 вышел в [августе 2026 года](https://go.dev/doc/devel/release#go1.27.0), через шесть месяцев после [Go 1.26](https://go.dev/doc/go1.26).
+
+Большинство изменений относится к implementation toolchain, runtime и libraries.
+
+Как всегда, release сохраняет [Go 1 compatibility promise](https://go.dev/doc/go1compat). Ожидается, что почти все существующие Go programs продолжат compile'иться и выполняться как раньше.
+
+## Изменения языка {#language}
 
 ### Generic methods
 
-Главное изменение языка: **methods теперь могут объявлять собственные type parameters**, аналогично functions.
+Go 1.27 теперь поддерживает [generic methods](https://go.dev/issue/77273): [method declaration](https://go.dev/ref/spec#Method_declarations) может объявлять собственные [type parameters](https://go.dev/ref/spec#Type_parameter_declarations).
+
+Это позволяет размещать generic functions в namespace конкретного data type, тогда как раньше такую function приходилось объявлять на уровне всего package.
+
+Например, `math/rand/v2` теперь имеет generic method:
 
 ```go
-type List[E any] []E
-
-func (l List[E]) Apply[F any](f func(E) F) List[F] {
-    r := make(List[F], len(l))
-    for i, x := range l {
-        r[i] = f(x)
-    }
-    return r
-}
+(*Rand) N[Int intType](Int) Int
 ```
 
-`F` — type parameter самого method, а `E` — parameter receiver type.
+тогда как раньше был только generic function:
 
-Это снимает старое ограничение generics, при котором operation с новым result type часто приходилось оформлять top-level function.
+```go
+N[Int intType](Int) Int
+```
 
-Function literals по-прежнему не объявляют собственные type parameters.
+Methods interfaces не могут объявлять type parameters, и interface methods не могут быть implemented generic methods.
 
-### Keyed struct literals и promoted fields
+### Struct literal field selectors
 
-В keyed struct literals field key теперь может быть valid selector, включая promoted field embedded struct, при соблюдении новых ambiguity/overlap restrictions.
+Key в [struct literal](https://go.dev/ref/spec#Composite_literals) теперь может быть любым valid [field selector](https://go.dev/issue/9859) для struct type, а не только top-level field name struct.
 
-Это позволяет задавать nested promoted fields более непосредственно, но overlapping initialization embedded value и promoted field запрещается, чтобы initialization оставалась однозначной.
+### Function type inference
 
-Подробные normative rules: [[../spec|Go 1.27 Language Specification]].
+Function type inference [расширен](https://go.dev/issue/77245) и теперь применяется во всех contexts, где generic function [assign](https://go.dev/ref/spec#Assignability)'ится variable matching function type либо converted к такому function type.
 
-## Ports
+## Tools {#tools}
 
-### Linux
+### Response files
 
-Минимальное требование Linux kernel для поддерживаемых architectures повышено до **3.2**. Некоторые старые architectures/platform combinations могут иметь более высокий minimum.
+Parsing response files вида `@file` теперь поддерживается tools:
 
-### macOS
+- `compile`;
+- `link`;
+- `asm`;
+- `cgo`;
+- `cover`;
+- `pack`.
 
-Go 1.27 — последний release, поддерживающий macOS 13 Ventura. Go 1.28 потребует macOS 14 Sonoma или новее.
+Response file содержит whitespace-separated arguments и поддерживает single/double quoted strings, escape sequences и backslash-newline continuation. Format совместим с GCC response files.
 
-### `loong64`
+### Go command {#go-command}
 
-Поддержка LoongArch переведена на новый ABI **ABI2.0**. ABI0 был временным early port ABI и несовместим с ABI2.0.
+Команда `go` больше не поддерживает version control system `bzr` и не может напрямую получать modules с `bzr` servers.
 
-- Go binaries, собранные Go 1.27+ для `loong64`, требуют ABI2.0 Linux userspace;
-- cgo code использует ABI2.0;
-- distribution/toolchain перестаёт поддерживать ABI0.
+#### `GODEBUG`
 
-## Tools
+Начиная с Go 1.27 команда `go` распознаёт удалённые `GODEBUG` settings, например `asynctimerchan`, если они встречаются в `go.mod` (`godebug`) или `.go` source (`//go:debug`).
 
-### `go` command
+Setting принимается, если указан final default value, установленный до его удаления. Старое value приводит к failure. Это позволяет существующим programs с explicit default продолжать build/run после удаления switch.
 
-Go command продолжает развитие toolchain/dependency workflows и поддерживает Go 1.27 language/toolchain requirements.
+#### `go test`
 
-### `go vet`
+`go test` теперь по default запускает vet check `stdversion`, который report'ит standard-library symbols, слишком новые для Go version current file, определяемой `go` directive и build tags.
 
-Analyzers обновлены под новые language/API patterns. Как и прежде:
+`go test -json` теперь может добавлять к `"Action":"output"` optional field `"OutputType"`. Сейчас values включают `error`, `error-continue`, `frame`.
+
+#### `go doc`
+
+Поддерживается syntax:
+
+```text
+package@version
+```
+
+например:
 
 ```bash
-go vet ./...
+go doc example.com/pkg@v1.2.3
 ```
 
-остаётся standard static correctness check, но не заменяет compiler/tests/security tools.
+Добавлен `-ex` для listing executable examples package/symbol. При передаче example name, например `go doc bytes.ExampleBuffer`, выводится source example вместе с comments.
 
-## Compiler
+#### `go fix`
 
-Compiler получил optimization improvements, включая использование новых language/runtime capabilities и дальнейшее развитие PGO.
+Добавлены modernizers:
 
-### PGO
+- `atomictypes`;
+- `embedlit`;
+- `slicesbackward`;
+- `unsafefuncs`.
 
-Profile-guided optimization продолжает улучшаться. Existing profiles предыдущих builds сохраняют intended source-skew tolerance. Для production workflow см. [[../pgo|PGO guide]].
+Analyzer `fmtappendf` удалён из-за stylistic concerns. Analyzer `waitgroup` переименован в `waitgroupgo`.
 
-### Stack allocation / escape analysis / inlining
+#### `go mod tidy`
 
-Go 1.27 включает compiler improvements, способные менять escape decisions, inlining и generated machine code. Не полагайтесь на specific allocation decision как на language guarantee; measure текущий binary/profile.
+Для modules с `go 1.27` или newer `go mod tidy` автоматически объединяет duplicate `require` blocks, оставляя максимум два:
 
-## Runtime
+1. direct dependencies;
+2. indirect dependencies.
 
-Runtime продолжает улучшения scheduler, GC и memory behavior.
+Existing comment blocks сохраняются. Если comment block относится к mixed set direct/indirect dependencies, он прикрепляется к новому direct dependency block.
 
-### Garbage collector
+### Gofmt {#gofmt}
 
-Go 1.27 включает дальнейшие GC/runtime performance improvements. Existing `GOGC`/`GOMEMLIMIT` model остаётся основным tuning interface.
+Исправлена logic column alignment в `gofmt` и `go/format`. Старый algorithm мог давать слегка разный result на разных CPU architectures. После Go 1.27 возможны minor whitespace diffs в небольшом числе уже formatted files.
 
-### Traceback labels
+### Vet {#vet}
 
-Default `GODEBUG=tracebacklabels=1`: runtime tracebacks могут включать goroutine labels. Это повышает diagnosability, но labels могут содержать sensitive application metadata; compatibility opt-out существует согласно [[../godebug|GODEBUG reference]].
+Analyzer `printf` теперь report'ит calls вроде:
 
-### Runtime metrics/debugging
+```go
+fmt.Errorf("...: %w", p)
+```
 
-Обновлены runtime/metrics и diagnostics в соответствии с новыми runtime features. При upgrades dashboards следует сверять с current package docs, не предполагать появление/исчезновение metric names по старой version.
+если `%w` operand `p` имеет type `*E`, а сам `E` implements `error`. Такое wrapping обычно latent bug для type assertions и `errors.Is`.
 
-## Linker
+### Trace
 
-Linker продолжает improvements binary generation/platform support. Architecture-specific users, особенно assembly/cgo, должны rebuild/retest native components при переходе major Go line.
+`go tool trace -http=:6060` теперь слушает только localhost. Чтобы слушать все addresses, нужно явно указать:
 
-## Standard library
+```bash
+go tool trace -http=0.0.0.0:6060
+```
 
-Ниже — значимые user-visible изменения Go 1.27. Для exhaustive API symbol list source release notes остаются pinned upstream source этой страницы.
+## Runtime {#runtime}
 
-### `archive/zip`
+Tracebacks modules с Go 1.27+ теперь включают `runtime/pprof` goroutine labels в header line. Отключение:
 
-Добавлены convenience helpers для работы с symlink metadata/reading symlink target в archive. Это упрощает безопасную обработку links без ручного разбора mode/external attributes.
+```text
+GODEBUG=tracebacklabels=0
+```
 
-При extraction untrusted ZIP всё равно необходимо самостоятельно обеспечить destination/path policy — archive API не является sandbox.
+Opt-out предполагается сохранять indefinitely из-за possible sensitive labels.
 
-### `bufio`
+`asynctimerchan` permanently removed. Channels package `time` всегда unbuffered/synchronous независимо от `GODEBUG`.
 
-Добавлены API improvements вокруг scanning/read behavior, включая более явные возможности управления/инспекции reader state в новых methods release.
+### Faster memory allocation
 
-### `bytes`
+Compiler генерирует calls size-specialized allocation routines. Для некоторых small allocations `<80 bytes` cost снижается до 30%; ожидаемый overall improvement allocation-heavy applications — около 1%. Binary size растёт примерно на 60 KB.
 
-Package получил incremental API/performance improvements. Existing semantics `Buffer`, search/split/compare сохраняются согласно compatibility promise.
+Temporary opt-out:
 
-### `crypto`
+```text
+GOEXPERIMENT=nosizespecializedmalloc
+```
 
-#### FIPS 140
+Планируется удалить в Go 1.28.
 
-Go 1.27 развивает native FIPS 140-3 infrastructure и Go Cryptographic Module. Доступны current/frozen module versions и связанные build/runtime controls.
+### Goroutine leak profile {#goroutineleak-profiles}
 
-См. [[../security/fips140|FIPS 140-3 Compliance]].
+Profile type `goroutineleak`, experimental в Go 1.26, теперь generally available через `runtime/pprof` и `/debug/pprof/goroutineleak`.
 
-#### `crypto/rand`
+Leaked goroutine — goroutine, blocked на concurrency primitive, который уже невозможно unblock'ить. Runtime использует GC reachability: если primitive unreachable из runnable goroutines и goroutines, которые они могли бы unblock'ить, blocked goroutine считается leaked.
 
-Cryptographic randomness продолжает использовать platform CSPRNG, а в FIPS mode — approved DRBG construction согласно current crypto module.
+Mechanism не может обнаружить все leaks, особенно если primitive reachable через globals или locals runnable goroutines.
+
+`goroutineleakprofile` GOEXPERIMENT удалён.
+
+## Compiler {#compiler}
+
+Compiler теперь resolves relative filename в `//line`/`/*line*/` directives относительно directory containing source file, как `go/scanner`. Absolute filenames unaffected.
+
+Compiler также генерирует более простые names function literals/closures. Name теперь стабильно независимо от inlining, а multiple instances одной literal могут share compiled code.
+
+Semantics Go code не меняются. Tests, зависящие от symbol names, могут потребовать update. Programs, некорректно сравнивающие function code pointers, могут чаще видеть равные pointers у closures с разными captured data.
+
+## Linker {#linker}
+
+При targeting macOS linker принимает options:
+
+```text
+-macos
+-macsdk
+```
+
+Они задают OS/SDK versions в `LC_BUILD_VERSION`.
+
+Defaults: oldest supported macOS — `13.0.0`; recent SDK — `26.2.0`.
+
+## Standard library {#library}
+
+### Новые packages `encoding/json/v2` и `encoding/json/jsontext` {#jsonv2}
+
+Go 1.27 добавляет `encoding/json/v2` — major revision `encoding/json` — и low-level `encoding/json/jsontext`.
+
+V2 API включает `Marshal`, `MarshalWrite`, `MarshalEncode`, `Unmarshal`, `UnmarshalRead`, `UnmarshalDecode`, принимающие configurable `Options`.
+
+`jsontext.Encoder`/`Decoder` работают с JSON как sequence `Token`/`Value` и поддерживают state machine valid JSON.
+
+V2 default stricter: invalid UTF-8 и duplicate object member names reject'ятся.
+
+Original `encoding/json` теперь internally использует v2 implementation, но сохраняет v1 behavior; exact error texts могут меняться. V1 API останется supported, migration optional. См. [[../jsonv2-migration|migration guide]].
+
+Marshal performance примерно parity с прежней implementation; unmarshal существенно быстрее.
+
+Temporary opt-out:
+
+```text
+GOEXPERIMENT=nojsonv2
+```
+
+Experiment changes: removed `format`/`unknown` tags, `DiscardUnknownMembers`, `SkipFunc`; `inline` renamed to `embed`; изменены semantics `string`, `MatchCaseInsensitiveNames` и numeric `jsontext.Token` accessors.
+
+### Новый package `crypto/mldsa` {#crypto_mldsa}
+
+Новый `crypto/mldsa` implements ML-DSA (FIPS 204).
+
+`crypto/x509` поддерживает ML-DSA private/public keys и signatures. `crypto/tls` поддерживает ML-DSA signatures в TLS 1.3 через `MLDSA44`, `MLDSA65`, `MLDSA87`.
+
+### Новый package `uuid` {#uuid}
+
+Новый `uuid` package генерирует и parses UUIDs.
+
+### Experimental `simd` {#simd}
+
+`GOEXPERIMENT=simd` включает portable, vector-size-agnostic package `simd`. Он доступен на всех architectures и предоставляет vectors unspecified width, например `Int8s`, `Float32s`, и scalable subset operations.
+
+### Experimental `simd/archsimd` {#archsimd}
+
+Architecture-specific SIMD experiment, начатый в Go 1.26, расширен: revised amd64 API, arm64 Neon 128-bit SIMD и WebAssembly 128-bit SIMD.
+
+Supported widths: 128-bit на wasm/arm64/amd64; 256/512-bit на некоторых amd64 processors. API пока нестабилен и непереносим.
+
+### Minor changes to the library {#minor_library_changes}
+
+#### `bytes`
+
+Новый `CutLast` разрезает `[]byte` вокруг последнего occurrence separator и упрощает common `LastIndex` usages.
+
+#### `compress/flate`
+
+Compression speed improved. Encoded output может byte-for-byte отличаться от Go 1.26 из-за новой encoder implementation. Это также затрагивает output `archive/zip`, `compress/gzip`, `compress/zlib`, `image/png`.
+
+#### `crypto`
+
+Добавлен `Hash` value `MLDSAMu` для External μ ML-DSA signing.
+
+#### `crypto/ecdsa`
+
+`PrivateKey.Sign` проверяет корректность hash length при non-nil `SignerOpts`.
 
 #### `crypto/tls`
 
-TLS behavior обновлён в соответствии с security policy и современными algorithms. Некоторые compatibility changes управляются `GODEBUG` только на transition period.
-
-Go 1.27 release/GODEBUG history включает post-quantum/FIPS-related controls, актуальные supported defaults и удаление истёкших legacy switches.
+- `QUICConfig.ClientHelloInfoConn` задаёт `net.Conn` для `ClientHelloInfo.Conn` во время QUIC server handshake.
+- Поддержан `MLKEM1024` key exchange.
+- `Config.Rand` deprecated; для deterministic tests используйте `testing/cryptotest.SetGlobalRandom`.
+- PQ hybrid exchanges можно explicitly включать через `CurvePreferences` независимо от `tlsmlkem=0`/`tlssecpmlkem=0`.
+- `ConnectionState.LocalCertificate` содержит certificate chain, presented peer.
+- Permanently removed: `tlsunsafeekm`, `tlsrsakex`, `tls3des`, `tls10server`, `x509keypairleaf`.
+- `tlskyber` фактически был удалён ещё в Go 1.24.
 
 #### `crypto/x509`
 
-Обновлены certificate parsing/verification/platform-root behaviors. На Windows/Darwin появился compatibility control, определяющий использование `SSL_CERT_FILE`/`SSL_CERT_DIR` вместо platform store (`x509sslcertoverrideplatform`).
+- `pkix.Name` parsing поддерживает более широкий range `AttributeTypeAndValue.Value`; unknown types сохраняются как `asn1.RawValue`.
+- Добавлены `RawSignatureAlgorithm` в `Certificate`, `CertificateRequest`, `RevocationList`.
+- `SystemCertPool` учитывает `SSL_CERT_FILE`/`SSL_CERT_DIR` на Windows/Darwin; при их наличии используется native Go verifier. Opt-out: `GODEBUG=x509sslcertoverrideplatform=0`.
 
-### `encoding/base64`
+#### `crypto/x509/pkix`
 
-Добавлены/расширены APIs для encoding/decoding непосредственно в buffers/append-oriented workflows, уменьшающие intermediate allocations для hot paths.
+`RDNSequence.String`/`Name.String` renders string-typed unknown-OID values как strings, а не всегда DER hex.
 
-### `encoding/json/v2`
+#### `database/sql`
 
-Экспериментальный/new-generation JSON stack продолжает развитие. API v2 и `encoding/json/jsontext` получили additional methods/options/performance work.
+Новая `ConvertAssign` предоставляет drivers conversions, используемые `Rows.Scan`.
 
-Migration guide: [[../jsonv2-migration|encoding/json/v2 Migration Guide]].
+#### `database/sql/driver`
 
-Особенно важно проверять:
+Новый interface `RowsColumnScanner` позволяет drivers scan directly в caller destinations.
 
-- duplicate names;
-- case matching;
-- invalid UTF-8;
-- nil collection representation;
-- custom marshalers;
-- deterministic ordering.
+#### `go/constant`
 
-### `errors`
+Новая `StringLen` получает length string `Value`, не материализуя его целиком.
 
-Error traversal/wrapping APIs остаются compatibility foundation (`Is`, `As`, `Join`, wrapping `%w` через `fmt`). Go 1.27 включает incremental implementation/API documentation improvements.
+#### `go/scanner`
 
-### `fmt`
+Новый `Scanner.End` возвращает end position token.
 
-Formatter продолжает поддерживать generic/new types через existing interfaces (`Stringer`, `Formatter`, `GoStringer`). Performance fixes не меняют formatting contract.
+#### `go/token`
 
-### `go/ast`, `go/parser`, `go/token`, `go/types`
+`File` получил method `String`.
 
-Tooling packages обновлены для syntax/type-system Go 1.27, в том числе **generic methods** и новые struct-literal semantics.
+#### `go/types`
 
-Tools, которые анализируют Go source собственными AST/type assumptions, должны быть протестированы на 1.27 syntax и не ограничиваться parser старой version.
+Новый `Hasher` implements `maphash.Hasher` для `Type` с equivalence `Identical`; `HasherIgnoreTags` — для `IdenticalIgnoreTags`.
 
-### `hash/*`
+`gotypesalias` permanently removed. `go/types` всегда создаёт `Alias` node для alias declaration.
 
-Некоторые hash implementations получили append/marshal/state improvements и optimizations. Cryptographic suitability алгоритма не меняется от того, что package находится под `hash`; security use должен выбирать crypto primitives намеренно.
+#### `hash/maphash`
 
-### `html/template`
+Новый interface `Hasher` задаёт contract hash functions для future hash-based structures; `ComparableHasher` — convenience implementation для comparable types с equality `==`.
 
-Contextual escaping/security behavior продолжает hardened defaults. При security fixes compatibility может быть subordinated безопасному behavior согласно Go security policy.
+#### `math/big`
 
-### `io`
+`Int.Divide` вычисляет quotient/remainder с rounding modes `Trunc`, `Floor`, `Round`, `Ceil`.
 
-Добавлены/улучшены utility APIs и optimizations вокруг common Reader/Writer flows. Small interfaces `Reader`, `Writer`, `ReaderAt`, `WriterTo`, `ReaderFrom` остаются центральным composability contract.
+#### `math/rand/v2` {#rand}
 
-### `log/slog`
+`Rand` получил generic method `N`, соответствующий top-level generic function `N`.
 
-Structured logging продолжает развитие handler/value API/performance. Production users должны учитывать, что handlers могут удерживать groups/attrs и что source attribution имеет cost.
+#### `net`
 
-### `math`
+Read methods `UnixConn` теперь возвращают `io.EOF` напрямую, а не wrapping в `net.OpError`, если underlying read вернул EOF.
 
-Floating-point/math implementation получила performance/accuracy improvements, включая architecture-specific optimizations. IEEE edge behavior следует current package docs.
+#### `net/http`
 
-### `net`
+- `Transport`/`Server` поддерживают TLS ALPN negotiation на user-provided `net.Conn`, реализующем `ConnectionState() tls.ConnectionState`.
+- HTTP/2 server принимает client priority signals RFC 9218; `Server.DisableClientPriority` возвращает round-robin behavior.
+- HTTP/1 `Response.Body.Close` drains unread body до conservative limit для connection reuse.
+- `Server.MaxHeaderValueCount` задаёт maximum header values; default — `DefaultMaxHeaderValueCount`.
 
-Networking stack получил incremental improvements, включая platform/runtime integration и resolver/socket behavior.
+#### `net/http/httptest`
 
-### `net/http`
+Новая `NewTestServer` создаёт server на in-memory fake network для `testing/synctest`.
 
-Go 1.27 содержит значительные HTTP changes/hardening, включая ограничения ресурсов, связанные с cookie/query parsing в поддерживаемых security backports, и further HTTP/2/HTTP behavior improvements.
+#### `net/url`
 
-Важно: HTTP parser/resource limits могут повлиять на приложения, которые исторически принимали экстремально большие valid inputs. Compatibility toggles существуют как transition mechanism, но application-level limits лучше задавать явно.
+Новые `URL.Clone` и `Values.Clone` создают deep copies.
 
-### `net/url`
+#### `runtime/secret`
 
-Добавлен/усилен лимит на количество query parameters для защиты от resource-exhaustion attacks и более строгая обработка malformed host/colon cases. Transition behavior отражён в `GODEBUG` (`urlmaxqueryparams`, `urlstrictcolons`).
+Goroutines, созданные внутри secret mode, сами выполняются в secret mode.
 
-### `os`
+#### `strings`
 
-File/process APIs получили platform fixes и incremental helpers. Behavior path/file permissions остаётся platform-dependent; portable code не должен предполагать Unix semantics на всех targets.
+Новый `CutLast` разрезает string вокруг последнего occurrence separator.
 
-### `os/exec`
+#### `syscall`
 
-Command execution сохраняет security rule, введённое предыдущими Go releases: implicit current-directory lookup не должен молча превращать относительное имя executable в `./name`; `ErrDot`/PATH semantics защищают от common path-hijack pattern.
+На Plan 9 type `Errno` теперь defined и implements `error`, чтобы portable code с `syscall.Errno` build'ился без build constraints. System calls Plan 9 всё равно возвращают `ErrorString`.
 
-### `path/filepath`
+#### `testing/synctest`
 
-Platform path processing обновляется совместно с OS security behavior. Для URL paths используйте `path`, не `filepath`.
+Новый `Sleep` объединяет `time.Sleep` и `synctest.Wait`.
 
-### `reflect`
+#### `unicode`
 
-Reflect обновлён для language/type-system 1.27, включая generic method metadata/handling где применимо. Reflection code должен быть тестирован с instantiated generic types/methods.
+Unicode support обновлён с Unicode 15 до **Unicode 17**.
 
-### `regexp`
+## Ports {#ports}
 
-Implementation/performance improvements сохраняют RE2-style guarantees: regexp engine избегает catastrophic exponential backtracking semantics common в некоторых regex engines.
+### Darwin {#darwin}
 
-### `runtime/debug`
+Go 1.27 требует **macOS 13 Ventura или newer**. Support previous versions discontinued.
 
-Diagnostics/build info/runtime tuning APIs продолжают evolution. `debug.SetGCPercent`, `debug.SetMemoryLimit`, stack/GC stats остаются key runtime controls.
+### PowerPC {#ppc64}
 
-### `slices`
+Big-endian 64-bit PowerPC Linux (`GOOS=linux GOARCH=ppc64`) теперь использует ELFv2 system ABI.
 
-Generic slices utilities получили новые helpers/optimizations. Как и другие generic stdlib packages, они уменьшают необходимость повторять manual loops, когда semantics совпадает.
+ELFv2 требует Linux kernel 3.13+; RHEL7 backported support в kernel 3.10.
 
-### `strings`
+Теперь supported:
 
-Добавлены/улучшены append-oriented/string processing APIs и optimizations. Strings остаются immutable byte sequences; UTF-8 semantics требуют `unicode/utf8`/range/runes в зависимости от задачи.
+- cgo;
+- PIE;
+- external linking.
 
-### `sync`
-
-Synchronization primitives получили runtime/performance improvements. Memory-order guarantees определяются package docs и [[../memory-model|memory model]]. Не выводите synchronization semantics из observed implementation.
-
-### `sync/atomic`
-
-Typed atomics и operations сохраняют sequentially-consistent guarantees Go memory model. Используйте atomic только когда lock-free design действительно оправдан и его invariant понятен.
-
-### `testing`
-
-Testing/fuzzing/benchmark infrastructure расширена под новые toolchain capabilities. Native fuzzing остаётся integrated с `go test`; current behavior описан в [[../security/fuzz/index|Fuzzing]].
-
-### `time`
-
-Timer/ticker semantics продолжают modern synchronous-channel model, перешедшую в previous releases. Исторический `asynctimerchan` compatibility switch удалён в Go 1.27.
-
-### `unicode`
-
-Unicode tables обновлены до version, указанной current package `unicode` docs. Программы, которые зависят от category/case tables exact version, должны учитывать это при reproducible processing.
-
-## `go/types` / tooling impact generic methods
-
-Наиболее потенциально breaking для custom source-analysis tools изменение — method type parameters. Tooling, ранее предполагавший grammar:
-
-```text
-func (recv) Method(args)
-```
-
-должен принимать:
-
-```text
-func (recv) Method[T constraint](args)
-```
-
-и корректно работать с instantiation/inference method values/calls.
-
-Используйте current `go/parser`, `go/ast`, `go/types` вместо собственного incomplete grammar, если это возможно.
-
-## Assembly/ABI
-
-Architecture-specific changes, особенно `loong64` ABI2, требуют rebuild native/assembly/cgo dependencies. Handwritten assembly необходимо перепроверить против Go 1.27 `cmd/internal/obj/<arch>` conventions и [[../asm|assembler guide]].
-
-## Compatibility
-
-Go 1 compatibility promise сохраняется, но не означает отсутствие behavioral changes:
-
-- security fixes могут intentionally harden defaults;
-- `GODEBUG` transition settings временно дают old semantics;
-- platform minimums могут повышаться;
-- compiler/runtime optimization decisions не API;
-- experimental APIs не имеют той же stability, что stable stdlib.
-
-Перед production upgrade:
+Для них нужен ELFv2-compatible runtime, libc и libraries. Pure-Go programs без cgo всё ещё по default получают static internally-linked binaries. Для static pure-Go build при cgo options:
 
 ```bash
-go test ./...
-go test -race ./...
-go vet ./...
-govulncheck ./...
+CGO_ENABLED=0 go build
 ```
-
-и обязательно прогоните integration/load tests под Go 1.27.1.

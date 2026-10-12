@@ -5,45 +5,61 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/threat-model.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Go Threat Model
 
-Если package documentation не задаёт отдельный threat model, для standard library/toolchain предполагается этот общий model.
+## Обзор
 
-## Build safety
+Этот документ определяет общий threat model для Go toolchain и standard library.
 
-Сборка Go code предполагается безопасной и не должна иметь неожиданных side effects вроде исполнения attacker code.
+Если documentation конкретного package не определяет собственный threat model, следует считать, что ко всем packages standard library применяется model, описанный здесь.
 
-## Runtime execution
+### Threat Model
 
-Запуск malicious code сам по себе не считается vulnerability Go. Пользователь считается ответственным за решение выполнить program.
+#### Build Safety
 
-## Memory safety
+Сборка Go code считается безопасной и не должна иметь side effects, например unexpected execution.
 
-При отсутствии `unsafe` runtime/language должны обеспечивать memory safety в рамках documented model.
+#### Runtime Execution
 
-## Trust boundaries
+Execution malicious code в общем случае не считается relevant security issue.
 
-APIs, разумно ожидающие arbitrary user input, должны быть hardened против panic и произвольного resource exhaustion.
+Предполагается, что user, знакомый с Go, понимает, что именно он запускает.
 
-Garbage input, который просто даёт unexpected output, не обязательно является security issue.
+#### Memory Safety
 
-## Environment control
+Предполагается, что при отсутствии использования package `unsafe` memory safety гарантируется runtime.
 
-Local OS/system считается trusted. Attacks, требующие уже скомпрометированного filesystem, arbitrary environment variables/PATH control либо process memory access, вне threat model.
+#### Trust Boundaries
 
-## Packages с отдельной security model
+APIs, от которых разумно ожидается приём arbitrary user-provided input, должны быть hardened против panics и arbitrary resource consumption.
 
-Отдельные security notes/models имеют, среди прочих:
+Передача garbage в API, приводящая к unexpected output, не считается security issue.
 
-- `encoding/json`;
-- `encoding/json/v2`;
-- `encoding/json/jsontext`;
-- `encoding/gob`;
-- `html/template`;
-- `image`;
-- `debug/pe`, `debug/macho`, `debug/dwarf`, `debug/plan9obj`, `debug/elf`.
+#### Environment Control
 
-При использовании этих packages их package-level security model имеет приоритет над general assumptions.
+Предполагается, что local system безопасна.
+
+Attacks, требующие уже compromised OS, не считаются relevant. В частности, threat model не включает attacker control над:
+
+- filesystem;
+- environment variables, включая `PATH`;
+- memory access или control.
+
+### Packages с собственным threat model
+
+Для следующих packages используются их package-specific security models:
+
+- [`encoding/json`](https://pkg.go.dev/encoding/json#hdr-Security_Considerations)
+- [`encoding/json/v2`](https://pkg.go.dev/encoding/json/v2#hdr-Security_Considerations)
+- [`encoding/json/jsontext`](https://pkg.go.dev/encoding/json/jsontext#hdr-Security_Considerations)
+- [`encoding/gob`](https://pkg.go.dev/encoding/gob#hdr-Security)
+- [`html/template`](https://pkg.go.dev/html/template#hdr-Security_Model)
+- [`image`](https://pkg.go.dev/image#hdr-Security_Considerations)
+- [`debug/pe`](https://pkg.go.dev/debug/pe#hdr-Security)
+- [`debug/macho`](https://pkg.go.dev/debug/macho#hdr-Security)
+- [`debug/dwarf`](https://pkg.go.dev/debug/dwarf#hdr-Security)
+- [`debug/plan9obj`](https://pkg.go.dev/debug/plan9obj#hdr-Security)
+- [`debug/elf`](https://pkg.go.dev/debug/elf#hdr-Security)

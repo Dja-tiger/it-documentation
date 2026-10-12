@@ -8,49 +8,87 @@
 
 Взять 100000 `PriceUpdate`, разбить по 3000 и загрузить в staging table Greenplum выбранным driver-supported способом.
 
+### Входные данные
+
+100000+ generated records, configurable batch size и test/stage Greenplum endpoint.
+
 ### Ожидаемое поведение
 
-- bounded number concurrent database operations;
-- cancellation прекращает новые batches;
-- error содержит batch identity/context;
-- повторный запуск имеет явную idempotency policy.
+Concurrency bounded; cancellation прекращает новые batches; ошибки содержат batch identity/context; restart semantics predictable.
 
 ### Ограничения
 
-Не запускать goroutine на row. Максимальная DB concurrency — configuration parameter и должна учитывать cluster/connection limits.
+No goroutine per row; DB concurrency — configuration parameter и учитывает cluster/connection limits; не использовать production для destructive tests.
 
 ### Acceptance criteria
 
-Есть metrics/counters как минимум: rows attempted, rows accepted, batches succeeded/failed, duration, pool wait stats.
+Есть counters: rows attempted/accepted, batches succeeded/failed, duration, pool wait stats. Все input records accounted for по выбранной failure policy.
+
+### Команды проверки
+
+```bash
+go test ./...
+go test -race ./...
+go test -run TestGreenplumBatchIntegration -v ./...
+```
 
 ## Задание 2. Read → process → write
 
-### Архитектура
+### Условие
 
-```text
-Greenplum source query
-        ↓
-rows.Scan stream
-        ↓
-validation/batcher
-        ↓
-bounded workers
-        ↓
-Greenplum/PostgreSQL sink
-```
+Реализовать streaming flow `Greenplum source query → rows.Scan → validation/batcher → bounded workers → sink`.
+
+### Входные данные
+
+Source result больше одного batch и records с invalid domain values.
 
 ### Ожидаемое поведение
 
-Не материализовать весь source result в RAM без причины. `Rows`/context lifecycle корректны. Backpressure ограничивает in-flight data.
+Source не materialize’ится целиком в RAM без причины; downstream slowdown создаёт bounded backpressure.
+
+### Ограничения
+
+`Rows`/context lifecycle корректны; queues bounded; transaction scope не растягивается на весь job без обоснования.
+
+### Acceptance criteria
+
+Memory usage определяется in-flight batches, а не полным dataset; counts read/valid/invalid/written сходятся.
+
+### Команды проверки
+
+```bash
+go test -run TestReadProcessWrite -v ./...
+go test -race -run TestReadProcessWrite ./...
+```
 
 ## Задание 3. Cancellation drill
 
-Отменить job во время long-running DB operation. Проверить:
+### Условие
 
-- Go goroutines завершились;
-- connection вернулась/закрылась согласно driver behavior;
-- new batches не стартовали;
-- partial work соответствует заранее выбранной transaction/idempotency model.
+Отменить job во время long-running DB operation.
+
+### Входные данные
+
+Job context с manual cancel/timeout и workload, гарантированно активный в момент cancellation.
+
+### Ожидаемое поведение
+
+New batches не стартуют; goroutines завершаются; partial work соответствует documented transaction/idempotency policy; connection возвращается/закрывается согласно driver behavior.
+
+### Ограничения
+
+Safety timeout обязателен; тестировать на non-production environment.
+
+### Acceptance criteria
+
+После cancel нет hanging goroutines; повторный запуск ведёт себя согласно restart contract.
+
+### Команды проверки
+
+```bash
+go test -run TestGreenplumCancellation -v -timeout=20s ./...
+go test -race -run TestGreenplumCancellation ./...
+```
 
 ## Задание 4. Connection budget
 
@@ -58,21 +96,25 @@ Greenplum/PostgreSQL sink
 
 Задать application concurrency budget исходя из DB connection limit и других workloads.
 
+### Входные данные
+
+Max DB connections, chosen worker count, queue size, expected parallel processes и query timeout.
+
+### Ожидаемое поведение
+
+Application не создаёт скрытую DB concurrency выше documented budget; saturation приводит к bounded wait/timeout.
+
+### Ограничения
+
+Budget должен оставлять headroom для других workloads/operations; worker count не равен автоматически max pool size.
+
 ### Acceptance criteria
 
-В README ответить:
+README отвечает: max open connections; workers holding queries; saturation behavior; queue timeout; monitored `DB.Stats()` fields.
 
-1. сколько максимальных open connections у process;
-2. сколько workers одновременно могут держать query;
-3. что происходит при saturation;
-4. какой timeout защищает очередь;
-5. какие `DB.Stats()` показатели мониторить.
-
-## Команды проверки
+### Команды проверки
 
 ```bash
+go test -run TestConnectionBudget -v ./...
 go test -race ./...
-go test ./...
 ```
-
-Integration tests с реальным Greenplum запускать отдельным profile/tag/environment, не делая unit suite зависимым от production cluster.

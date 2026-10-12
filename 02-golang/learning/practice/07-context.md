@@ -4,88 +4,144 @@
 
 ### Условие
 
-Worker обрабатывает batch с simulated latency и должен прекращать работу при `ctx.Done()`.
+Worker обрабатывает batch с simulated latency и прекращает работу при `ctx.Done()`.
 
 ### Входные данные
 
-Несколько batches, часть дольше timeout.
+Несколько batches: быстрые и заведомо медленнее configured timeout.
 
 ### Ожидаемое поведение
 
-Function возвращает `context.DeadlineExceeded`/контекстную cause по выбранному contract и не оставляет goroutines.
+Function возвращает context-related error/cause по выбранному contract и не оставляет goroutines после timeout.
 
 ### Ограничения
 
 - context первым parameter;
 - caller создаёт timeout и вызывает `cancel`;
-- все potentially blocking channel operations cancellation-aware через `select`.
+- blocking channel operations cancellation-aware через `select`;
+- test имеет independent safety timeout.
 
 ### Acceptance criteria
 
-Test имеет свой safety timeout и доказывает bounded completion.
+Repeated tests доказывают bounded completion и отсутствие race.
 
 ### Команды проверки
 
 ```bash
 go test -race -run TestCancellation -count=20 ./...
+go test -run TestCancellation -timeout=5s ./...
 ```
 
 ## Задание 2. Propagation chain
 
 ### Условие
 
-Реализовать signatures уровня:
+Реализовать call chain `handler(ctx) → service.Process(ctx) → repository.Store(ctx)`.
 
-```text
-handler(ctx)
-  → service.Process(ctx)
-    → repository.Store(ctx)
-```
+### Входные данные
 
-Repository пока simulated. Отмена root должна наблюдаться на нижнем уровне.
+Root context с timeout/cancel и fake repository, который умеет наблюдать `Done()`.
+
+### Ожидаемое поведение
+
+Отмена root наблюдается в repository без создания нового root context внутри layers.
+
+### Ограничения
+
+Incoming context нельзя заменять на `context.Background()`; values, если используются, только request-scoped metadata.
 
 ### Acceptance criteria
 
-Ни один layer не заменяет incoming context на `Background()`.
+Test доказывает propagation через все layers и корректный returned error/cause.
+
+### Команды проверки
+
+```bash
+go test -run TestContextPropagation -v ./...
+go test -race -run TestContextPropagation ./...
+```
 
 ## Задание 3. Graceful shutdown pipeline
 
 ### Условие
 
-Source генерирует work постоянно. По cancel:
+Source генерирует work постоянно. По cancel прекратить intake, применить documented drain/abort policy, дождаться goroutines и вернуть итоговую cause.
 
-1. прекратить принимать новую work;
-2. выбрать и документировать policy: drain accepted work или abort;
-3. дождаться goroutines;
-4. закрыть outputs только owner’ами;
-5. вернуть итоговую error/cause.
+### Входные данные
+
+Continuous synthetic source, bounded worker pool, slow worker и cancellation signal.
+
+### Ожидаемое поведение
+
+New work не принимается после stop boundary; accepted work ведёт себя согласно policy; output channels закрывают owner’ы; process завершается до deadline.
+
+### Ограничения
+
+No goroutine leak; all blocking points observe context; shutdown deadline bounded.
 
 ### Acceptance criteria
 
-Repeated test не увеличивает goroutine count устойчиво после завершения; `-race` clean.
+Repeated test не показывает устойчивого роста goroutines; `-race` clean; drain/abort semantics зафиксированы.
 
-## Intentional-break lab
+### Команды проверки
 
-### Потерянная cancellation
-
-В service layer вызвать repository с `context.Background()`. Test должен показать, что timeout верхнего уровня больше не останавливает repository. Исправить propagation.
-
-### Blocked send
-
-Worker проверяет `ctx.Err()` только в начале, затем делает blocking `out <- result`. Отменить pipeline, когда consumer остановлен. Исправить send через `select`.
-
-## Data Engineering scenario
-
-Смоделировать NiFi/Airflow-like job execution:
-
-```text
-job context
-   ↓
-CSV/API source
-   ↓
-worker pool
-   ↓
-external sink
+```bash
+go test -run TestGracefulShutdown -count=20 -timeout=10s ./...
+go test -race -run TestGracefulShutdown ./...
 ```
 
-При cancellation job новые batches не стартуют, текущие operations получают context, shutdown bounded.
+## Intentional-break lab 1. Потерянная cancellation
+
+### Условие
+
+Временно заменить incoming context на `context.Background()` перед repository.
+
+### Входные данные
+
+Parent с коротким timeout и repository operation длиннее timeout.
+
+### Ожидаемое поведение
+
+Broken test показывает, что repository продолжает работу после parent cancellation.
+
+### Ограничения
+
+Только isolated exercise; затем propagation восстановить.
+
+### Acceptance criteria
+
+Regression test красный в broken version и green после исправления.
+
+### Команды проверки
+
+```bash
+go test -run TestContextPropagation -v ./...
+```
+
+## Intentional-break lab 2. Blocked send
+
+### Условие
+
+Worker проверяет `ctx.Err()` только в начале, затем делает blocking `out <- result`; consumer остановлен.
+
+### Входные данные
+
+Unconsumed output channel и canceled context.
+
+### Ожидаемое поведение
+
+Broken worker зависает до test safety timeout; исправленный send через `select` завершается по cancellation.
+
+### Ограничения
+
+Обязателен safety timeout.
+
+### Acceptance criteria
+
+Можно указать точную blocking point и показать исправление без polling/sleep.
+
+### Команды проверки
+
+```bash
+go test -run TestBlockedSendCancellation -timeout=3s -v ./...
+```

@@ -2,13 +2,16 @@
 title: "Go / Golang — карта документации"
 technology: "Go"
 version: "1.27.1"
-translation_status: "translated"
+translation_status: "in_progress"
 ---
 
 # Go / Golang
 
 > [!info]
 > Baseline: **Go 1.27.1**. Core/spec/runtime зафиксированы по `golang/go@go1.27.1`, User Manual и tutorials — по `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`.
+
+> [!warning]
+> После технического ревью 2026-10-12 раздел переведён в статус `in_progress`: файловая целостность и навигация исправлены, но выборочная сверка с upstream показала, что часть страниц сейчас является сокращённым переводом, а не полным зеркалом исходного документа. Для нормативных утверждений до завершения full-fidelity review приоритет имеет указанный upstream.
 
 ## Обучение
 
@@ -23,7 +26,7 @@ translation_status: "translated"
 - [[docs/manage-install|Управление версиями Go]]
 - [[docs/getting-started|Getting Started]]
 - [[docs/code|Как писать Go-код]]
-- [Сборка и установка Go из исходников](https://go.dev/doc/install/source)
+- [[docs/install-source|Сборка и установка Go из исходников]]
 - [[docs/editors|Editor plugins и IDE]]
 
 ## Язык и стиль
@@ -34,9 +37,12 @@ translation_status: "translated"
 - [[docs/faq|FAQ]]
 - [[docs/comment|Go Doc Comments]]
 
+> [!note]
+> Локальный `docs/spec.md` пока не прошёл полный построчный full-fidelity review. Нормативным источником остаётся `golang/go@go1.27.1:doc/go_spec.html`.
+
 ## Модули и toolchain
 
-- [Go Modules Reference](https://go.dev/ref/mod)
+- [Go Modules Reference — upstream](https://go.dev/ref/mod) — локальное зеркало пока отсутствует.
 - [[docs/modules/developing|Разработка и публикация модулей]]
 - [[docs/modules/managing-dependencies|Управление зависимостями]]
 - [[docs/modules/gomod-ref|Справочник go.mod]]
@@ -61,8 +67,19 @@ translation_status: "translated"
 ## Tutorials
 
 - [[docs/getting-started|Начало работы]]
-- [[docs/tutorial/create-module|Создание модуля]]
-- [[docs/tutorial/call-module-code|Вызов кода другого модуля]]
+
+### Create a Go module — полная цепочка файлов
+
+1. [[docs/tutorial/create-module|Создание модуля]]
+2. [[docs/tutorial/call-module-code|Вызов кода другого модуля]]
+3. [[docs/tutorial/handle-errors|Возврат и обработка error]]
+4. [[docs/tutorial/random-greeting|Случайное приветствие и slice]]
+5. [[docs/tutorial/greetings-multiple-people|Несколько имён и map]]
+6. [[docs/tutorial/add-a-test|Добавление unit test]]
+7. [[docs/tutorial/compile-install|Сборка и установка приложения]]
+
+### Остальные tutorials
+
 - [[docs/tutorial/generics|Generics]]
 - [[docs/tutorial/workspaces|Workspaces]]
 - [[docs/tutorial/fuzz|Fuzzing]]
@@ -105,7 +122,7 @@ translation_status: "translated"
 
 ## Проект Go
 
-- [Contribution Guide](https://go.dev/doc/contribute)
+- [Contribution Guide — upstream](https://go.dev/doc/contribute) — локальное зеркало пока отсутствует.
 
 ## Release notes
 
@@ -120,10 +137,12 @@ translation_status: "translated"
 - [A Tour of Go](https://go.dev/tour/)
 - [История релизов Go](https://go.dev/doc/devel/release)
 
-## Метаданные
+## Метаданные и контроль качества
 
 - [[_meta/sync-rules|Правила синхронизации]]
-- `_meta/manifest.json` — machine-readable coverage/status.
+- [[_meta/review-2026-10-12|Техническое ревью раздела]]
+- `_meta/manifest.json` — machine-readable inventory/status.
+- `_meta/validate.py` — проверка manifest, WikiLinks и обязательного frontmatter.
 
 > [!note]
-> Upstream FAQ исторически утверждал, что methods не могут иметь собственные type parameters. Начиная с Go 1.27 generic methods разрешены; в переводе это расхождение явно исправлено по спецификации Go 1.27.1.
+> Upstream FAQ исторически утверждал, что methods не могут иметь собственные type parameters. В Go 1.27 grammar `MethodDecl` включает `[ TypeParameters ]`; при расхождениях с историческими guides ориентируйтесь на спецификацию `go1.27.1`.

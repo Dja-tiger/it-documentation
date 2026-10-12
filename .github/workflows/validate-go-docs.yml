@@ -1,0 +1,33 @@
+name: Validate Go documentation
+
+on:
+  pull_request:
+    paths:
+      - "02-golang/**"
+      - ".github/workflows/validate-go-docs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "02-golang/**"
+      - ".github/workflows/validate-go-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Go documentation
+        run: python 02-golang/_meta/validate.py

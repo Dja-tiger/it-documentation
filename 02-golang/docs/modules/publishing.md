@@ -1,60 +1,69 @@
 ---
-title: "Публикация Go module"
+title: "Публикация module"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/publishing.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Публикация Go module
+# Публикация module
 
-Чтобы другие разработчики могли разрешать dependency на ваш module через Go tools, module нужно опубликовать — то есть сделать versioned source доступным по module path.
+Чтобы module стал доступен другим developers, его необходимо опубликовать так, чтобы Go tools могли его обнаружить. После публикации developers, импортирующие packages этого module, смогут разрешить dependency через commands вроде `go get`.
 
 > [!warning]
-> Никогда не изменяйте содержимое уже опубликованного version tag. Go ecosystem аутентифицирует module content относительно ранее наблюдавшейся версии/checksum. Повторное использование того же version number с другим содержимым способно вызвать security error. Для любого изменения выпускайте новую version.
+> Не изменяйте tagged version module после её публикации. Go tools authenticate скачанный module относительно первой известной copy. Если содержимое одной и той же version изменилось, tools вернут security error. Вместо изменения уже опубликованной version выпускайте новую version.
+
+**См. также:**
+
+- overview module development: [[developing|Разработка и публикация modules]];
+- общий workflow, включающий publishing: [[release-workflow|Module release and versioning workflow]].
 
 ## Шаги публикации
 
-1. Перейдите в root module локального repository.
+1. Откройте terminal и перейдите в module root внутри local repository.
 
-2. Очистите dependency declarations:
+2. Выполните `go mod tidy`, чтобы удалить dependencies, которые больше не нужны:
 
-```bash
-go mod tidy
+```text
+$ go mod tidy
 ```
 
-3. Финально запустите тесты:
+3. В последний раз выполните tests всего module:
 
 ```text
 $ go test ./...
 ok      example.com/mymodule       0.015s
 ```
 
-4. Закоммитьте изменения и создайте semantic version tag, соответствующий характеру release:
+Это запускает unit tests, написанные через Go testing framework.
 
-```bash
-git commit -m "mymodule: changes for v0.1.0"
-git tag v0.1.0
+4. Tag'ните project новой version через `git tag`.
+
+Version number должен отражать nature изменений. Подробнее см. [[version-numbers|Нумерация versions module]].
+
+```text
+$ git commit -m "mymodule: changes for v0.1.0"
+$ git tag v0.1.0
 ```
 
-5. Отправьте tag в origin:
+5. Push'ните tag в origin repository:
 
-```bash
-git push origin v0.1.0
+```text
+$ git push origin v0.1.0
 ```
 
-6. Чтобы proxy увидел опубликованную version, можно выполнить `go list` через публичный Go proxy:
+6. Сделайте module доступным через Go ecosystem, выполнив [`go list`](https://pkg.go.dev/cmd/go#hdr-List_packages_or_modules), чтобы Go proxy/index получил информацию о published module.
 
-```bash
-GOPROXY=proxy.golang.org go list -m example.com/mymodule@v0.1.0
+Перед command задайте `GOPROXY=proxy.golang.org`, чтобы request гарантированно дошёл до proxy:
+
+```text
+$ GOPROXY=proxy.golang.org go list -m example.com/mymodule@v0.1.0
 ```
 
-После этого пользователь может импортировать package и получить module:
+После публикации developers импортируют package и используют `go get` так же, как для других modules. Можно получить latest version либо конкретную version:
 
-```bash
-go get example.com/mymodule@v0.1.0
+```text
+$ go get example.com/mymodule@v0.1.0
 ```
-
-Для выбора version number см. [[version-numbers|Module version numbering]].

@@ -14,7 +14,7 @@
 
 После технического ревью 2026-10-12 общий статус раздела — **`in_progress`**.
 
-Фактическое дерево `docs/` содержит 65 Markdown-документов. Навигация и manifest синхронизированы с этим деревом, однако выборочная сверка с upstream показала, что часть страниц пока представляет собой сокращённую локализацию, а не полный перевод исходного документа.
+Фактическое дерево `docs/` содержит 68 Markdown-документов. Навигация и manifest синхронизированы с этим деревом, однако выборочная сверка с upstream показала, что часть страниц пока представляет собой сокращённую локализацию, а не полный перевод исходного документа.
 
 Поэтому наличие файла с историческим `translation_status: translated` ещё не означает, что он прошёл полный source-parity review.
 
@@ -33,35 +33,38 @@
 - официальным tutorials;
 - `database/sql`;
 - security и vulnerability management;
+- Contribution Guide;
 - Go 1.27 release notes.
 
 Документация standard library на `pkg.go.dev/std` генерируется из комментариев исходного кода тысяч API-symbols. Она учитывается отдельно как generated canonical reference и не смешивается с ручным переводом guides.
 
 ## Известные отсутствующие локальные зеркала
 
-Пока не созданы полные локальные переводы:
+Пока не создан полный локальный перевод:
 
-- [Installing Go from source](https://go.dev/doc/install/source) → планируется `docs/install-source.md`;
-- [Go Modules Reference](https://go.dev/ref/mod) → планируется `docs/modules/reference.md`;
-- [Contribution Guide](https://go.dev/doc/contribute) → планируется `docs/contribute.md`.
+- [Go Modules Reference](https://go.dev/ref/mod) → планируется `docs/modules/reference.md`.
 
-До появления этих файлов навигация должна вести на официальный upstream, а не на несуществующие WikiLinks.
+До появления этого файла навигация должна вести на официальный upstream, а не на несуществующий WikiLink.
 
 ## Навигация
 
-Начните с [[MOC|карты раздела Go]].
+Хочу найти конкретную информацию → [[MOC|MOC / документация]].
+
+Хочу системно изучить Go → [[learning/roadmap|learning roadmap]].
 
 Для состояния покрытия и контроля качества:
 
 - `_meta/manifest.json` — machine-readable inventory/status;
 - [[_meta/sync-rules|правила синхронизации и Definition of Done]];
 - [[_meta/review-2026-10-12|результаты технического ревью]];
-- `_meta/validate.py` — автоматическая проверка структуры и metadata.
+- `_meta/validate.py` — автоматическая проверка translated/localized docs;
+- `learning/validate.py` — проверка learning inventory, stage contract и Obsidian WikiLinks.
 
-Запуск validator из корня repository:
+Запуск validators из корня repository:
 
 ```bash
 python 02-golang/_meta/validate.py
+python 02-golang/learning/validate.py
 ```
 
 ## Лицензия

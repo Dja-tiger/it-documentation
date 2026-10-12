@@ -13,6 +13,13 @@ translation_status: "in_progress"
 > [!warning]
 > Раздел проходит full-fidelity review против зафиксированного upstream. Уже проверенные страницы помечены `reviewed`; для остальных до завершения сверки приоритет имеет указанный upstream.
 
+## Обучение
+
+- [[learning/README|Как изучать Go]]
+- [[learning/roadmap|Roadmap]]
+- [[learning/progress|Прогресс]]
+- [[learning/projects/README|Практические проекты]]
+
 ## Старт
 
 - [[docs/install|Установка Go]]

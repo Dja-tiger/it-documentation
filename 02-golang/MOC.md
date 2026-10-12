@@ -11,7 +11,7 @@ translation_status: "in_progress"
 > Baseline: **Go 1.27.1**. Core/spec/runtime зафиксированы по `golang/go@go1.27.1`, User Manual и tutorials — по `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`.
 
 > [!warning]
-> После технического ревью 2026-10-12 раздел переведён в статус `in_progress`: файловая целостность и навигация исправлены, но выборочная сверка с upstream показала, что часть страниц сейчас является сокращённым переводом, а не полным зеркалом исходного документа. Для нормативных утверждений до завершения full-fidelity review приоритет имеет указанный upstream.
+> Раздел проходит full-fidelity review против зафиксированного upstream. Уже проверенные страницы помечены `reviewed`; для остальных до завершения сверки приоритет имеет указанный upstream.
 
 ## Старт
 
@@ -35,7 +35,7 @@ translation_status: "in_progress"
 
 ## Модули и toolchain
 
-- [Go Modules Reference — upstream](https://go.dev/ref/mod) — локальное зеркало пока отсутствует.
+- [Go Modules Reference — upstream](https://go.dev/ref/mod) — локальное зеркало восстанавливается.
 - [[docs/modules/developing|Разработка и публикация модулей]]
 - [[docs/modules/managing-dependencies|Управление зависимостями]]
 - [[docs/modules/gomod-ref|Справочник go.mod]]
@@ -61,7 +61,7 @@ translation_status: "in_progress"
 
 - [[docs/getting-started|Начало работы]]
 
-### Create a Go module — полная цепочка файлов
+### Create a Go module — полная цепочка
 
 1. [[docs/tutorial/create-module|Создание модуля]]
 2. [[docs/tutorial/call-module-code|Вызов кода другого модуля]]
@@ -70,6 +70,7 @@ translation_status: "in_progress"
 5. [[docs/tutorial/greetings-multiple-people|Несколько имён и map]]
 6. [[docs/tutorial/add-a-test|Добавление unit test]]
 7. [[docs/tutorial/compile-install|Сборка и установка приложения]]
+8. [[docs/tutorial/module-conclusion|Заключение]]
 
 ### Остальные tutorials
 

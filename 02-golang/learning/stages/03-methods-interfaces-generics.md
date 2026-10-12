@@ -14,10 +14,11 @@ Structs, pointers, functions, maps/slices из [[02-core-language|Stage 2]].
 2. [A Tour of Go — Generics](https://go.dev/tour/generics/1).
 3. [[../../docs/tutorial/generics|Generics tutorial]].
 4. Выборочно [[../../docs/effective-go|Effective Go]]: methods, interfaces, embedding.
-5. Reference: [[../../docs/spec#Method sets|Method sets]], [[../../docs/spec#Type assertions|Type assertions]], [[../../docs/spec#Comparison|comparability]].
+5. Русский reference: [[../../docs/spec#Method sets|Method sets]], [[../../docs/spec#Type assertions|Type assertions]], [[../../docs/spec#Comparison|comparability]].
+6. Для нормативной проверки Go 1.27.1: [`golang/go@go1.27.1:doc/go_spec.html`](https://github.com/golang/go/blob/go1.27.1/doc/go_spec.html).
 
 > [!important]
-> Для Go 1.27 нормативный источник по generic methods — [[../../docs/spec|Specification]]. Старые explanatory тексты могут отставать от текущего языка.
+> Старые explanatory тексты могут отставать от текущего языка. До завершения full-fidelity review локального `docs/spec.md` нормативным источником для edge cases остаётся pinned upstream specification Go 1.27.1.
 
 ## Что необходимо понять
 

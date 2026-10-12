@@ -1,6 +1,6 @@
 # Самостоятельное изучение Go
 
-Этот каталог — **learning layer** поверх уже переведённой официальной документации в `../docs/`.
+Этот каталог — **learning layer** поверх уже существующей русскоязычной локализации официальной документации в `../docs/`.
 
 Он не заменяет документацию и не пересказывает её. Его задача — дать порядок изучения, практику, проверку понимания и последовательность проектов.
 
@@ -25,7 +25,7 @@ production-oriented Data Engineering service
 1. Прочитать [[study-rules|правила обучения и критерий mastery]].
 2. Открыть [[roadmap|Roadmap]] и начать с Stage 1.
 3. Отмечать фактический прогресс в [[progress|Progress]].
-4. Для каждой темы сначала читать указанные официальные материалы, затем выполнять упражнения.
+4. Для каждой темы сначала читать указанные официальные/локализованные материалы, затем выполнять упражнения.
 5. Переходить дальше только после практической проверки из stage-файла.
 
 ## Навигация
@@ -46,12 +46,14 @@ production-oriented Data Engineering service
 
 ## Источники истины
 
-- Переведённые материалы: `../docs/`.
-- Нормативная семантика языка: [[../docs/spec|Go 1.27 Specification]].
+- Локальный русскоязычный learning/reference layer: `../docs/`.
+- Состояние полноты локализации: [[../_meta/review-2026-10-12|техническое ревью Go-раздела]].
+- Удобный локальный reference по языку: [[../docs/spec|Specification Go 1.27]].
+- Нормативный pinned source по семантике языка до завершения full-fidelity review локального `spec.md`: [`golang/go@go1.27.1:doc/go_spec.html`](https://github.com/golang/go/blob/go1.27.1/doc/go_spec.html).
 - Standard library API: [pkg.go.dev/std](https://pkg.go.dev/std).
 - Интерактивная практика core language: [A Tour of Go](https://go.dev/tour/).
 
-Specification используется как reference в ранних stages и читается системно только ближе к концу маршрута.
+Specification используется как reference в ранних stages и читается системно только ближе к концу маршрута. Для спорных или нормативных деталей сверяйте локальный русский текст с pinned upstream Go 1.27.1.
 
 > [!important]
-> Baseline курса — **Go 1.27.1**. Learning layer не меняет upstream refs, metadata и translated documentation.
+> Baseline курса — **Go 1.27.1**. Learning layer не меняет upstream refs, metadata и translated/localized documentation.

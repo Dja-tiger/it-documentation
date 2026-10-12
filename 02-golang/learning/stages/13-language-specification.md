@@ -2,7 +2,9 @@
 
 ## Цель
 
-После практического опыта превратить [[../../docs/spec|Specification Go 1.27]] в рабочий нормативный reference: уметь точно отвечать на language-semantics questions, а не учить Go с нуля по формальному тексту.
+После практического опыта превратить Specification в рабочий нормативный reference: уметь точно отвечать на language-semantics questions, а не учить Go с нуля по формальному тексту.
+
+Локальный [[../../docs/spec|русский `docs/spec.md`]] используется для навигации и первого чтения. До завершения его full-fidelity review нормативные edge cases необходимо сверять с pinned upstream [`golang/go@go1.27.1:doc/go_spec.html`](https://github.com/golang/go/blob/go1.27.1/doc/go_spec.html).
 
 ## Перед началом
 
@@ -10,7 +12,12 @@ Stages 1–12. Особенно важны methods/interfaces/generics, concurre
 
 ## Прочитать
 
-Основной документ один: [[../../docs/spec|Спецификация языка Go 1.27]]. Читать несколькими проходами:
+Работать параллельно с двумя представлениями одного baseline:
+
+- [[../../docs/spec|локальная русская Specification Go 1.27]] — основной reading/navigation layer;
+- [`golang/go@go1.27.1:doc/go_spec.html`](https://github.com/golang/go/blob/go1.27.1/doc/go_spec.html) — нормативная pinned-версия для проверки точной семантики.
+
+Читать несколькими проходами:
 
 1. lexical elements, constants, variables;
 2. types: arrays/slices/structs/pointers/functions/interfaces/maps/channels;
@@ -27,7 +34,7 @@ Stages 1–12. Особенно важны methods/interfaces/generics, concurre
 
 ## Что необходимо понять
 
-- [ ] spec — нормативный источник, tutorials/FAQ — explanatory sources.
+- [ ] pinned upstream spec — нормативный источник, tutorials/FAQ/localization — explanatory/navigation sources.
 - [ ] named vs underlying type и type identity.
 - [ ] method set `T`/`*T` без смешения с automatic addressability calls.
 - [ ] assignability ≠ arbitrary implicit conversion.
@@ -39,7 +46,7 @@ Stages 1–12. Особенно важны methods/interfaces/generics, concurre
 - [ ] channel/send/receive/close/select language rules.
 - [ ] `defer` evaluation time и reverse execution order.
 - [ ] initialization order и отсутствие implicit wait for goroutines при return `main`.
-- [ ] version-specific Go 1.27 language changes из текущего spec.
+- [ ] version-specific Go 1.27 language changes из pinned spec.
 
 ## Что НЕ нужно пока изучать
 
@@ -78,17 +85,17 @@ Stages 1–12. Особенно важны methods/interfaces/generics, concurre
 
 ## Практическая проверка
 
-Взять 10 nontrivial fragments из собственного `price-*` codebase. До compiler/runtime письменно предсказать compile/result/panic/blocking, сослаться на соответствующий раздел spec, затем проверить. Не считать задание выполненным, если объяснение основано только на «так обычно работает».
+Взять 10 nontrivial fragments из собственного `price-*` codebase. До compiler/runtime письменно предсказать compile/result/panic/blocking, сослаться на соответствующий раздел spec, затем проверить по pinned Go 1.27.1. Не считать задание выполненным, если объяснение основано только на «так обычно работает».
 
 ## Критерий завершения
 
 Я могу перейти дальше, если способен:
 
-- быстро найти normative rule в spec;
+- быстро найти normative rule в pinned spec;
 - отличить language guarantee от implementation detail;
 - объяснить method sets/assignability/comparability;
 - предсказать tricky `range`/`select`/`defer` behavior;
-- обнаружить устаревшее explanatory утверждение, сверив его с Go 1.27 spec.
+- обнаружить устаревшее explanatory утверждение, сверив его с Go 1.27.1 spec.
 
 ## Следующий этап
 

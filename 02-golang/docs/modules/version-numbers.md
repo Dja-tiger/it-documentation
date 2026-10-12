@@ -1,37 +1,54 @@
 ---
-title: "Нумерация версий Go modules"
+title: "Нумерация versions modules"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/version-numbers.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Нумерация версий Go modules
+# Нумерация versions modules
 
-Каждая часть version number Go module сообщает пользователям о стабильности и backward compatibility. При выпуске новой версии номер должен отражать характер изменений относительно предыдущего release.
+Developer module использует каждую часть version number, чтобы сообщить stability и backward compatibility. Для каждого release version number отражает nature изменений относительно предыдущего release.
 
-Go modules используют semantic versioning.
+Если ваш code использует external modules, version numbers помогают оценивать stability dependency при upgrade. Если вы разрабатываете собственный module, version number передаёт другим developers expectations о stability и compatibility.
 
-| Стадия | Пример | Что означает |
-|---|---|---|
-| В разработке | pseudo-version или `v0.x.x` | Module нестабилен; backward compatibility не гарантируется. |
-| Major | `v1.x.x`, `v2.x.x` | Для нового major возможны backward-incompatible public API changes. |
-| Minor | `vx.4.x` | Backward-compatible public API changes. |
-| Patch | `vx.x.1` | Исправления без изменения public API/контракта release. |
-| Pre-release | `vx.x.x-beta.2` | Alpha/beta/RC-подобный milestone без гарантии стабильности. |
+**См. также:**
 
-## Версия в разработке
+- управление external dependencies: [[managing-dependencies|Управление dependencies]];
+- публикация собственной version: [[publishing|Публикация module]].
 
-До стабильного `v1` module может иметь pseudo-version или version `v0.x.x`.
+Published module использует semantic versioning.
 
-### Pseudo-version
+Например:
 
-Когда commit не имеет semantic version tag, Go tools могут сгенерировать pseudo-version для записи в `go.mod`.
+```text
+v1.4.0-beta.2
+```
 
-> [!important]
-> Не формируйте pseudo-version вручную. Позвольте Go tools вычислять её.
+В этом числе:
+
+- `1` — major;
+- `4` — minor;
+- `0` — patch;
+- `beta.2` — optional pre-release identifier.
+
+| Stage | Example | Что сообщает users |
+| --- | --- | --- |
+| [[#In development|In development]] | automatic pseudo-version / `v0.x.x` | Module ещё развивается и нестабилен; backward compatibility/stability не гарантируются. |
+| [[#Major version|Major]] | `v1.x.x` | Public API может содержать backward-incompatible changes относительно предыдущих major versions. |
+| [[#Minor version|Minor]] | `vx.4.x` | Backward-compatible public API changes; compatibility и stability гарантируются в рамках major. |
+| [[#Patch version|Patch]] | `vx.x.1` | Changes не затрагивают public API или dependencies; compatibility и stability сохраняются. |
+| [[#Pre-release version|Pre-release]] | `vx.x.x-beta.2` | Alpha/beta milestone без stability guarantees. |
+
+## In development {#in-development}
+
+Module всё ещё развивается и считается **unstable**. Backward compatibility и stability не гарантируются.
+
+Version может иметь одну из форм.
+
+### Pseudo-version number {#pseudo}
 
 Пример:
 
@@ -39,72 +56,120 @@ Go modules используют semantic versioning.
 v0.0.0-20170915032832-14c0d48ead0c
 ```
 
+Если module ещё не tagged в repository, Go tools создают pseudo-version, используемую, например, в `go.mod` consumer code.
+
+> [!important]
+> Всегда позволяйте Go tools генерировать pseudo-version автоматически. Не создавайте её вручную.
+
+Pseudo-version полезна, когда consumer должен использовать конкретный commit, который ещё не получил semantic version tag.
+
 Форма:
 
 ```text
 baseVersionPrefix-timestamp-revisionIdentifier
 ```
 
-Компоненты:
+Части:
 
-- `baseVersionPrefix` — производен от предшествующего semantic version tag либо от `vX.0.0`, если подходящего tag нет;
-- `timestamp` — UTC-время создания revision в формате `yymmddhhmmss`; для Git используется commit time, а не author time;
-- `revisionIdentifier` — обычно первые 12 символов commit hash; в Subversion — zero-padded revision number.
+- **baseVersionPrefix** — `vX.0.0` или `vX.Y.Z-0`, derived из предшествующего semantic version tag либо `vX.0.0`, если tag отсутствует;
+- **timestamp** — UTC creation time revision в формате `yymmddhhmmss`. В Git используется commit time, а не author time;
+- **revisionIdentifier** — 12-character prefix commit hash, а для Subversion — zero-padded revision number.
 
-Pseudo-version полезна, когда client должен зависеть от конкретного ещё не tagged commit.
-
-### v0
-
-`v0.x.x` является формальным semantic version, но не обещает стабильность или backward compatibility. Breaking changes между v0 releases допустимы, а переход с v0 на v1 также может потребовать адаптации client code.
-
-## Pre-release
+### v0 number {#v0}
 
 Пример:
 
 ```text
-v1.2.3-beta.2
+v0.x.x
 ```
 
-Pre-release identifier добавляется после `major.minor.patch` через `-`. Такой release не даёт гарантий стабильности.
+Module с v0 использует формальное semantic version number из major/minor/patch частей и optional pre-release identifier.
 
-## Minor version
+Хотя v0 может использоваться в production, она не даёт guarantees stability или backward compatibility.
 
-Minor release означает backward-compatible изменения public API:
+Кроме того, v1+ разрешено нарушать compatibility с v0. Поэтому developer consumer code отвечает за adaptation к incompatible changes до выпуска v1.
+
+## Pre-release version {#pre-release}
+
+Pre-release сообщает о milestone вроде alpha/beta и не даёт guarantees stability.
+
+Пример:
 
 ```text
-v1.4.0
+vx.x.x-beta.2
 ```
 
-Это могут быть новые functions, methods, struct fields, types либо изменения dependencies, которые не требуют изменения существующего client code.
+Pre-release identifier можно добавить к любой `major.minor.patch` combination через `-identifier`.
 
-## Patch version
+## Minor version {#minor}
 
-Patch release предназначен для небольших исправлений, не меняющих public API:
+Minor version сообщает о backward-compatible changes public API.
+
+Пример:
 
 ```text
-v1.4.1
+vx.4.x
 ```
 
-Пользователь должен иметь возможность перейти на patch без изменения своего кода.
+Public API меняется, но client code предыдущих minor versions не должен ломаться.
 
-## Major version
+Такая version может включать:
 
-Major release означает возможные backward-incompatible public API changes.
+- changes dependencies самого module;
+- новые functions;
+- новые methods;
+- новые struct fields;
+- новые types.
 
-`v1+` сообщает, что module считается стабильным, кроме явно обозначенных pre-release versions.
+Users могут воспользоваться новой functionality, но им не требуется менять существующий code только из-за upgrade minor version.
 
-Major increment выше v1 следует делать только при необходимости, потому что он создаёт значительную миграционную стоимость для пользователей.
+## Patch version {#patch}
 
-Для v2 и выше major version входит в module path:
+Patch version сообщает о changes, не затрагивающих public API или dependencies.
+
+Пример:
+
+```text
+vx.x.1
+```
+
+Обычно это небольшие изменения вроде bug fixes. Consumer code может безопасно upgrade'иться без изменений.
+
+## Major version {#major}
+
+Major version сообщает о backward-incompatible changes public API и не гарантирует compatibility с предыдущими majors.
+
+Пример:
+
+```text
+v1.x.x
+```
+
+v1 и выше означает, что module считается stable для использования, за исключением pre-release versions.
+
+Поскольку v0 stability guarantees не даёт, developer, обновляющий dependency с v0 на v1, отвечает за adaptation к возможным breaking changes.
+
+Maintainer должен увеличивать major выше v1 только когда это необходимо: major upgrade создаёт существенный disruption для users. Это включает:
+
+- backward-incompatible public API changes;
+- необходимость менять package paths во всех imports нового major.
+
+Major version выше v1 также получает новый module path, потому что major number добавляется в path:
 
 ```text
 module example.com/mymodule/v2
 ```
 
-Это означает, что новый major рассматривается dependency management как новый module с отдельным module path. Imports пользователя также меняются:
+а release version будет, например:
 
-```go
-import "example.com/mymodule/v2/package"
+```text
+v2.0.0
 ```
 
-Подробный workflow — [[major-version|Разработка major-version update]].
+Новая major version считается новым module с отдельной history с точки зрения dependency management.
+
+Подробнее:
+
+- [[major-version|Разработка major version update]];
+- [[release-workflow|Module release and versioning workflow]];
+- [[gomod-ref|go.mod reference]].

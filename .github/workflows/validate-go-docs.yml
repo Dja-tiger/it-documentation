@@ -31,3 +31,6 @@ jobs:
 
       - name: Validate Go documentation
         run: python 02-golang/_meta/validate.py
+
+      - name: Validate Go learning layer
+        run: python 02-golang/learning/validate.py

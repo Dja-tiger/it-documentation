@@ -5,221 +5,337 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/jsonv2-migration.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Миграция на `encoding/json/v2`
 
-Go 1.25 представил экспериментальные `encoding/json/v2` и `encoding/json/jsontext`; в Go 1.27 API продолжает развиваться. `json/v2` исправляет ряд historical behaviors v1, которые нельзя безопасно поменять в старом package из-за Go 1 compatibility promise.
+Package [`encoding/json/v2`](https://pkg.go.dev/encoding/json/v2), представленный в Go 1.27, является major revision original package [`encoding/json`](https://pkg.go.dev/encoding/json).
 
-Для использования v2 в соответствующих Go versions может требоваться experiment/build configuration, описанная release docs. Всегда проверяйте текущий release status перед production migration.
+Этот guide объясняет, почему может быть полезно перейти с v1 на v2 и как сделать migration безопасно.
 
-## Зачем v2
+## Зачем мигрировать?
 
-Legacy `encoding/json` имеет behavior, которое с современным security/API-design взглядом неудобно:
+Сначала главное: **вы не обязаны мигрировать**.
 
-- case-insensitive field matching по default;
-- inconsistent nil slice/map encoding;
-- duplicate JSON object names могут приниматься;
-- invalid UTF-8 historically заменялся вместо строгого rejection;
-- custom marshal/unmarshal interfaces работают через intermediate `[]byte`, что затрудняет streaming;
-- option model ограничен.
+Package `encoding/json` не исчезнет. Он покрывается Go 1 compatibility promise, поэтому packages, использующие `encoding/json`, продолжат работать indefinitely.
 
-V2 меняет defaults и предоставляет explicit options для compatibility.
+Кроме того, `encoding/json` и `encoding/json/v2` совместимы друг с другом.
 
-## Основные packages
+Например, если type реализует custom marshaling через [`encoding/json/v2.MarshalerTo`](https://pkg.go.dev/encoding/json/v2#MarshalerTo), caller, который marshal'ит этот type через [`encoding/json.Marshal`](https://pkg.go.dev/encoding/json#Marshal), всё равно использует custom marshaler.
+
+Аналогично новые `json` struct tags, появившиеся в Go 1.27 вместе с `encoding/json/v2`, поддерживаются и `encoding/json`.
+
+Хотя migration не обязательна, причин использовать v2 несколько.
+
+Во-первых, новый API проще использовать.
+
+Например, записать JSON в [`io.Writer`](https://pkg.go.dev/io#Writer) можно напрямую через [`encoding/json/v2.MarshalWrite`](https://pkg.go.dev/encoding/json/v2#MarshalWrite), вместо обязательного использования [`encoding/json.Encoder`](https://pkg.go.dev/encoding/json#Encoder).
+
+[`encoding/json/v2.Marshalers`](https://pkg.go.dev/encoding/json/v2#Marshalers) позволяет переопределять marshal behavior конкретных types, даже если эти types вам не принадлежат.
+
+[`encoding/json/v2.MatchCaseInsensitiveNames`](https://pkg.go.dev/encoding/json/v2#MatchCaseInsensitiveNames) позволяет явно управлять case sensitivity при сопоставлении JSON object member names с Go struct fields.
+
+Но главная причина мигрировать — v2 выбирает более строгие и interoperable defaults, чем v1.
+
+Полный список differences находится в documentation [`encoding/json`](https://pkg.go.dev/encoding/json#hdr-Migrating_to_v2), а основные различия таковы:
+
+- В v1 invalid UTF-8 bytes внутри string silently заменяются Unicode replacement character. В v2 invalid UTF-8 приводит к error.
+- В v1 JSON object с duplicate names разрешён. В v2 duplicate names приводят к error.
+- В v1 nil Go slice или map marshal'ятся как JSON `null`. В v2 nil slice marshal'ится как empty JSON array, а nil map — как empty JSON object.
+- В v1 runtime errors никогда не report'ятся для Go struct types с некоторыми structural errors, например malformed field tag. В v2 invalid Go type для JSON serialization приводит к runtime error.
+
+Эти changes делают `encoding/json/v2` более interoperable с остальным JSON ecosystem, менее surprising и менее error-prone.
+
+Но changes не backward compatible. Некоторые applications зависят от v1 behavior, поэтому migration должна сопровождаться careful testing.
+
+## API changes vs behavior changes
+
+Для простого marshal/unmarshal Go APIs в основном language-level compatible, поэтому API migration тривиальна.
+
+Например:
+
+```go
+b, err := json.Marshal(v)
+```
+
+продолжит компилироваться, если просто заменить:
+
+```go
+import "encoding/json"
+```
+
+на:
 
 ```go
 import "encoding/json/v2"
-import "encoding/json/jsontext"
 ```
 
-`json/v2` отвечает за semantic conversion Go values ↔ JSON values.
+Сложная часть migration — не API differences, а behavior changes.
 
-`jsontext` предоставляет syntactic streaming/token-level encoder/decoder.
-
-## API mapping
-
-Legacy:
+Рассмотрим program:
 
 ```go
-json.Marshal(v)
-json.Unmarshal(data, &v)
-json.NewEncoder(w)
-json.NewDecoder(r)
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type Pet struct {
+	Name      string
+	Nicknames []string
+}
+
+func main() {
+	pets := []Pet{
+		{Name: "Oliver", Nicknames: []string{"Ollie", "Olliepop"}},
+		{Name: "Remi"},
+	}
+	b, err := json.Marshal(pets)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(b))
+}
 ```
 
-V2 добавляет option-oriented forms и streaming helpers. В tutorial/reference используются, например:
-
-```go
-json.Marshal(v, opts...)
-json.Unmarshal(data, &v, opts...)
-json.MarshalWrite(w, v, opts...)
-json.UnmarshalRead(r, &v, opts...)
-```
-
-Low-level stream semantic integration:
-
-```go
-json.MarshalEncode(enc, v, opts...)
-json.UnmarshalDecode(dec, &v, opts...)
-```
-
-## Case-sensitive struct field matching
-
-V1 исторически мог сопоставить JSON field с struct field без учёта регистра. V2 default строже и ожидает exact semantic match согласно tag/name rules.
-
-Если migration временно требует legacy matching, используйте соответствующую compatibility option (`MatchCaseInsensitiveNames` в API текущей версии).
-
-Рекомендация: исправить JSON schema/tags так, чтобы exact field names совпадали, а compatibility option использовать как transitional bridge.
-
-## Duplicate object member names
-
-Duplicate JSON names потенциально dangerous: разные parsers могут выбирать first/last value, что создаёт security ambiguity.
-
-V2 по default reject'ит duplicates. Legacy behavior можно временно разрешить option'ом `jsontext.AllowDuplicateNames(true)` там, где это действительно требуется.
-
-Лучше очистить producer/schema и оставить strict default.
-
-## Invalid UTF-8
-
-V2 более строго относится к invalid UTF-8. Legacy replacement behavior можно включить compatibility option'ом `jsontext.AllowInvalidUTF8(true)`.
-
-Для external/untrusted JSON strict rejection обычно безопаснее.
-
-## Nil slices/maps
-
-Legacy v1 часто marshal'ит nil slice/map как JSON `null`; v2 выбирает semantics, направленные на более предсказуемые collection encodings и предоставляет options для legacy behavior.
-
-При migration проверьте API contracts, где clients различают:
+В v1 output:
 
 ```json
-null
+[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":null}]
 ```
 
-и:
+Если trivial migration выполнить только заменой import на `encoding/json/v2`, program продолжит компилироваться, но output станет:
 
 ```json
-[]
-{}
+[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":[]}]
 ```
 
-Это может быть breaking change wire format даже если Go types не поменялись.
+`Nicknames` для Remi изменился с `null` на `[]`.
 
-## `omitempty` и `omitzero`
+Для новой program empty array, вероятно, лучше. Но в существующей application downstream consumers могут зависеть от `null`, и тогда seemingly harmless migration ломает contract.
 
-V2 уточняет semantics omission.
+## Options
 
-`omitempty` ориентирован на JSON-level empty representation и может отличаться от historical Go-value intuition.
+Все места, где behavior v2 отличается от v1, покрываются [`Options`](https://pkg.go.dev/encoding/json/v2#Options), позволяющими запросить v1 behavior при использовании v2 API.
 
-Для Go zero-value semantics существует `omitzero`:
+Чтобы использовать v2 API со всеми v1 behaviors, примените [`DefaultOptionsV1`](https://pkg.go.dev/encoding/json#DefaultOptionsV1):
 
 ```go
-type Event struct {
-    Created time.Time `json:"created,omitzero"`
+package main
+
+import (
+	jsonv1 "encoding/json"
+	"encoding/json/v2"
+	"fmt"
+)
+
+type Pet struct {
+	Name      string
+	Nicknames []string
+}
+
+func main() {
+	pets := []Pet{
+		{Name: "Oliver", Nicknames: []string{"Ollie", "Olliepop"}},
+		{Name: "Remi"},
+	}
+	b, err := json.Marshal(pets, jsonv1.DefaultOptionsV1())
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(b))
 }
 ```
 
-При migration fields, где исторически ожидалось «omit when Go zero», стоит проверить и при необходимости использовать `omitzero`.
+Output снова содержит `null`:
 
-## Map key ordering
+```json
+[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":null}]
+```
 
-V1 deterministic encoding map keys часто relied on sorting. V2 стремится к streaming/performance behavior и deterministic output управляется option'ами.
+Documentation `DefaultOptionsV1` содержит полный set options для v1 compatibility.
 
-Если JSON bytes участвуют в:
+Later options override earlier options, поэтому можно начать с полного v1 behavior и включать v2 changes по одному.
 
-- golden files;
-- signatures/hashes;
-- cache keys;
-- reproducible snapshots;
+## Migration
 
-явно включите deterministic serialization и не полагайтесь на accidental ordering.
+В зависимости от application и tolerance к risk существуют разные стратегии:
 
-## Byte arrays и binary
+- высокая tolerance к risk — [all-at-once](#all-at-once);
+- низкая tolerance к risk или troubleshooting — [option-by-option](#option-by-option);
+- production server applications — [`jsonsplit`](#jsonsplit).
 
-Проверьте encoding `[N]byte`, `[]byte` и named byte types: v2 изменяет/уточняет special binary representation и предоставляет compatibility options для legacy arrays/bytes behavior.
+### All-at-once {#all-at-once}
 
-Не assume, что arbitrary slice/array of uint8 всегда имеет identical JSON representation между v1/v2 — добавьте compatibility tests.
+Если application простая либо последствия migration errors малы, elaborate migration process может быть не нужен.
 
-## Method invocation semantics
+Можно просто:
 
-V2 лучше поддерживает methods через pointers/interfaces и более последовательные rules custom marshal/unmarshal. Это может открыть ранее невызывавшийся `MarshalJSON`/`UnmarshalJSON` method в edge cases.
+1. заменить calls на `encoding/json/v2`;
+2. запустить tests;
+3. исправить discovered incompatibilities;
+4. commit change.
 
-Migration tests должны включать:
+Если compatibility problem очевидна из change/error message, включите соответствующий [v1 compatibility option](https://pkg.go.dev/encoding/json#DefaultOptionsV1).
 
-- nil pointers;
-- embedded fields;
-- interface dynamic values;
-- pointer-receiver marshalers;
-- map values;
-- slice elements.
+Если причина неясна, используйте approaches ниже.
 
-## Custom marshalers v2
+All-at-once также полезен как быстрый первый pass: unit tests могут сразу показать obvious issues, после чего оставшиеся differences можно исследовать более аккуратно.
 
-Legacy interfaces:
+### Option-by-option {#option-by-option}
+
+Для complex application или low risk tolerance лучше мигрировать постепенно.
+
+Как сказано выше, `Marshal`/`Unmarshal` с `DefaultOptionsV1` ведут себя идентично `encoding/json`.
+
+Первый безопасный step — заменить все calls на `encoding/json/v2`, передавая `DefaultOptionsV1`.
+
+Это действительно safe migration layer; сам package `encoding/json` реализует `Marshal` и `Unmarshal` через v2 с compatibility options.
+
+Additional options override earlier options. Поэтому individual v1 behavior можно отключать отдельно.
+
+Например:
 
 ```go
-type Marshaler interface {
-    MarshalJSON() ([]byte, error)
-}
-
-type Unmarshaler interface {
-    UnmarshalJSON([]byte) error
-}
+json.Marshal(
+	v,
+	jsonv1.DefaultOptionsV1(),
+	json.FormatNilSliceAsNull(false),
+)
 ```
 
-V2 streaming interfaces:
+ведёт себя как v1, **кроме** encoding nil slices: они будут output'иться как empty arrays.
+
+Так можно:
+
+- включать v2 behavior по одному option;
+- объединять related options в groups;
+- использовать options как bisect mechanism при troubleshooting breaking difference.
+
+### `jsonsplit` {#jsonsplit}
+
+Package [`github.com/go-json-experiment/jsonsplit`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit) помогает мигрировать production applications, report'я differences между v1 и v2 без немедленного изменения production behavior.
+
+`jsonsplit` предоставляет wrapper functions `Marshal` и `Unmarshal`, которые по default ведут себя как `encoding/json`, но runtime configuration позволяет вызывать:
+
+- только v1;
+- только v2;
+- оба одновременно.
+
+При mode [`CallBothButReturnV1`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#CallMode) `jsonsplit.Marshal` marshal'ит input дважды: через v1 и v2.
+
+Differences report'ятся, но caller получает v1 result.
+
+Это позволяет production service обнаруживать incompatibilities без change external behavior.
+
+Если включить [`AutoDetectOptions`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#Codec), `jsonsplit` дополнительно пытается определить, какие конкретно options вызвали difference.
+
+У этого approach есть cost:
+
+- dual v1/v2 marshaling приблизительно удваивает marshal cost;
+- `AutoDetectOptions` выполняет ещё больше marshals, чтобы сузить set relevant options.
+
+Чтобы уменьшить overhead, можно анализировать только random subset calls через [`SetMarshalCallRatio`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#Codec.SetMarshalCallRatio).
+
+Пример применения `jsonsplit` к исходной program:
 
 ```go
-type MarshalerTo interface {
-    MarshalJSONTo(*jsontext.Encoder) error
+package main
+
+import (
+	"fmt"
+
+	"github.com/go-json-experiment/jsonsplit"
+)
+
+func init() {
+	// Вызываем и v1, и v2, чтобы обнаруживать differences,
+	// но продолжаем возвращать v1 output.
+	jsonsplit.GlobalCodec.SetMarshalCallMode(jsonsplit.CallBothButReturnV1)
+
+	// При difference автоматически определяем options,
+	// которые её вызывают.
+	jsonsplit.GlobalCodec.AutoDetectOptions = true
+
+	// Log каждую найденную difference.
+	jsonsplit.GlobalCodec.ReportDifference = func(d jsonsplit.Difference) {
+		fmt.Printf("detected jsonv1-to-jsonv2 difference: %v\n", d)
+	}
 }
 
-type UnmarshalerFrom interface {
-    UnmarshalJSONFrom(*jsontext.Decoder) error
+type Pet struct {
+	Name      string
+	Nicknames []string
+}
+
+func main() {
+	pets := []Pet{
+		{Name: "Oliver", Nicknames: []string{"Ollie", "Olliepop"}},
+		{Name: "Remi"},
+	}
+	b, err := jsonsplit.Marshal(pets)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(b))
 }
 ```
 
-Они позволяют работать непосредственно с JSON stream/token encoder/decoder без обязательного intermediate full `[]byte`.
+Program report'ит difference и определяет, что она связана с `FormatNilSliceAsNull`:
 
-Для compatibility можно поддерживать оба поколения methods во время staged migration.
+```text
+detected jsonv1-to-jsonv2 difference: {"Caller":"main.main+5","Func":"Marshal","GoType":"[]main.Pet","JSONValueV1":[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":null}],"JSONValueV2":[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":[]}],"Options":["jsonv2.FormatNilSliceAsNull"]}
+[{"Name":"Oliver","Nicknames":["Ollie","Olliepop"]},{"Name":"Remi","Nicknames":null}]
+```
 
-## Options как migration layer
+Production migration с `jsonsplit` может выглядеть так.
 
-V2 специально предоставляет options, которыми можно приблизить behavior к v1 и затем постепенно убрать compatibility flags.
+#### 1. Перейти на `jsonsplit`
 
-Типичный staged strategy:
+Замените callsites, задайте:
 
-1. Перейти на v2 API с options, максимально повторяющими текущий v1 wire behavior.
-2. Сравнить golden/contract tests.
-3. По одному отключать legacy options.
-4. На каждом шаге проверять downstream clients и security assumptions.
+- `CallBothButReturnV1`;
+- optional `AutoDetectOptions`;
+- integration preferred monitoring в `ReportDifference`, например logs или metrics.
 
-Не мигрируйте большой public API «одной заменой import path» без wire-level tests.
+#### 2. Наблюдать production differences
 
-## Что тестировать
+Собирайте reports из реального production traffic.
 
-Минимальный migration matrix:
+#### 3. Устранить differences
 
-- exact/case-mismatched field names;
-- unknown fields;
-- duplicate names;
-- invalid UTF-8;
-- nil vs empty slices/maps;
-- zero values + `omitempty`/`omitzero`;
-- map order/deterministic bytes;
-- `[]byte` и `[N]byte`;
-- custom marshaler/unmarshaler;
-- embedded/promoted fields;
-- numbers/overflow;
-- streaming concatenated values;
-- malformed JSON;
-- security-sensitive schema validation.
+Там, где `jsonsplit` report'ит difference, настройте options или types так, чтобы outputs совпадали.
 
-## Security consequence
+В исходном example можно передать:
 
-Самое важное migration direction v2 — более строгие и однозначные defaults. Для untrusted JSON не включайте legacy permissive options автоматически «чтобы tests прошли». Сначала определите, какой producer/client зависит от permissive behavior и можно ли исправить его.
+```go
+json.FormatNilSliceAsNull(true)
+```
 
-## Связанный tutorial
+В других случаях v2 может обнаружить реальную problem, которую лучше исправить.
 
-Практические examples API v2: [[tutorial/json|Работа с JSON]].
+Например, struct field tag `string`, применённый к invalid type вроде struct, игнорируется v1, но v2 report'ит error.
+
+Можно suppress'ить error через [`ReportErrorsWithLegacySemantics`](https://pkg.go.dev/encoding/json#ReportErrorsWithLegacySemantics), но разумнее удалить бессмысленный `string` tag.
+
+Difference output не обязательно означает downstream breakage. Она означает, что **breakage возможно**.
+
+На этом step options используются, чтобы завершить большую часть migration без остановки для detailed analysis каждого subtle difference. После перехода на v2 такие sites следует revisit и решить, можно ли принять новый behavior.
+
+#### 4. Переключиться на v2
+
+Когда production перестанет report'ить новые differences, переключите codec на:
+
+- [`OnlyCallV2`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#CallMode);
+- либо [`CallBothButReturnV2`](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#CallMode), если хотите продолжать checking differences.
+
+#### 5. Cleanup
+
+После безопасного rollout v2 замените `jsonsplit` на `encoding/json/v2` напрямую.
+
+Затем revisit compatibility options, оставленные на step 3, и постепенно переходите на v2 behavior там, где это безопасно.
+
+Дополнительные details: [`jsonsplit` migration documentation](https://pkg.go.dev/github.com/go-json-experiment/jsonsplit#hdr-Example_usage_and_migration).

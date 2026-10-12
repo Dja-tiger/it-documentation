@@ -8,24 +8,26 @@
 
 ### Входные данные
 
-`99.90`, `0`, `-1`, `149.99`.
+Минимальный набор: `99.90`, `0`, `-1`, `149.99`.
 
 ### Ожидаемое поведение
 
-Valid prices печатаются как accepted, invalid дают non-nil error и не завершают весь batch преждевременно.
+Valid prices печатаются как accepted. Invalid values дают non-nil error и не завершают весь batch преждевременно.
 
 ### Ограничения
 
 - два отдельных module;
-- local dependency подключить штатным Go mechanism из tutorial;
-- минимум один test valid и один invalid case.
+- local dependency подключить штатным Go mechanism из существующего tutorial;
+- минимум один test для valid и один для invalid case;
+- не копировать имена/functions из tutorial дословно, кроме стандартных Go-конструкций.
 
 ### Acceptance criteria
 
-- `go test ./...` проходит в library;
 - command запускается через `go run .`;
-- `go build .` создаёт executable;
-- можно объяснить каждую line `go.mod`.
+- library tests проходят;
+- command собирается в executable;
+- можно объяснить каждую line обоих `go.mod`;
+- можно объяснить, почему exported function доступна из второго package.
 
 ### Команды проверки
 
@@ -36,6 +38,32 @@ go vet ./...
 go build .
 ```
 
-## Эксперимент
+## Intentional-break experiment
 
-Сделать `ValidatePrice` unexported, затем удалить local replacement. Для каждого failure записать: layer ошибки, diagnostic, причина, исправление.
+### Условие
+
+Сначала сделать `ValidatePrice` unexported, затем в отдельном запуске удалить local replacement до публикации module.
+
+### Входные данные
+
+Тот же command и те же price values.
+
+### Ожидаемое поведение
+
+Оба изменения должны привести к диагностируемой проблеме, но на разных слоях: visibility и module resolution.
+
+### Ограничения
+
+Ломать только локальный учебный project. После каждого эксперимента возвращать working state.
+
+### Acceptance criteria
+
+Для каждого failure записаны: layer ошибки, точный diagnostic, причина и минимальное исправление.
+
+### Команды проверки
+
+```bash
+go run .
+go test ./...
+go env GOMOD
+```

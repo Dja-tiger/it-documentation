@@ -1,45 +1,67 @@
 ---
-title: "Workflow релизов и versioning Go module"
+title: "Module release and versioning workflow"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/release-workflow.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Workflow релизов и versioning Go module
+# Module release and versioning workflow
 
-При разработке module для других разработчиков последовательный release workflow помогает сделать upgrades предсказуемыми.
+При разработке modules для использования другими developers можно следовать workflow, который обеспечивает предсказуемый и последовательный experience для users module. Здесь описаны high-level steps этого workflow.
 
-## Типичный workflow
+Обзор module development: [[developing|Разработка и публикация modules]].
 
-1. **Создать module** и организовать source code.
-2. **Писать локальный client code** против ещё не опубликованного module, используя `replace`.
-3. Когда API готов к раннему тестированию, публиковать **v0 pre-releases**: alpha/beta.
-4. Выпустить первый **нестабильный v0**.
-5. Продолжать выпускать v0 patch/minor versions; в v0 breaking changes всё ещё допустимы.
-6. Перед stable release выпускать pre-release versions.
-7. Выпустить **v1** как первый stable release.
-8. Внутри v1 выпускать patch bug fixes и backward-compatible minor API additions.
-9. Если breaking change неизбежен, выпустить **новый major**, например v2.
+**См. также:**
 
-## Разработка против неопубликованного module
+- если нужно только использовать external packages, см. [[managing-dependencies|Управление dependencies]];
+- каждая новая version через version number сообщает nature changes. См. [[version-numbers|Нумерация versions modules]].
 
-Пока module не опубликован, обычный dependency flow через `go get` недоступен. Client module может указать local source через `replace` в `go.mod`.
+## Общие шаги workflow {#common-steps}
 
-Например:
+Типичная последовательность для нового module:
 
-```text
-require example.com/theirmodule v0.0.0-unpublished
-replace example.com/theirmodule v0.0.0-unpublished => ../theirmodule
-```
+1. **Начните module** и организуйте source так, чтобы он был удобен users и maintainers.
 
-Подробнее: [[managing-dependencies#разработка-и-тестирование-против-неопубликованного-module|локальная разработка dependencies]].
+   Если module development незнаком, начните с [[../tutorial/create-module|Tutorial: Create a Go module]].
 
-## Pre-release versions
+   В децентрализованной системе Go организация repository имеет значение. См. [[managing-source|Управление source module]].
 
-Pre-release позволяет получить feedback до stable release и не гарантирует стабильность.
+2. Настройте **local client code**, вызывающий functions unpublished module.
+
+   До публикации module недоступен через обычный dependency workflow (`go get`). Удобно тестировать его через local directory. См. [[#Разработка против unpublished module]].
+
+3. Когда code готов для early users, **публикуйте v0 pre-releases** — alpha/beta. См. [[#Публикация pre-release versions]].
+
+4. **Выпустите v0**, которая ещё не гарантирует stability, но позволяет users пробовать module. См. [[#Публикация первой unstable version]].
+
+5. После v0 продолжайте **выпускать новые versions**:
+
+   - bug fixes → patch releases;
+   - backward-compatible API additions → minor releases;
+   - во время v0 допускаются breaking changes, потому что v0 не обещает stability/backward compatibility.
+
+6. Перед stable release публикуйте **alpha/beta pre-releases**. См. [[#Публикация pre-release versions]].
+
+7. Выпустите v1 как **первый stable release**. См. [[#Публикация первой stable version]].
+
+8. В v1 продолжайте bug fixes и при необходимости backward-compatible additions public API.
+
+9. Если breaking changes невозможно избежать, публикуйте **новую major version**. Переход, например, v1 → v2 крайне disruptive и должен быть last resort. См. [[#Публикация breaking API changes]].
+
+## Разработка против unpublished module {#unpublished}
+
+Когда module или новая version только разрабатываются, они ещё не опубликованы. Поэтому другой module не может добавить их обычным `go get` workflow.
+
+Client module может ссылаться на local copy через `replace` directive в своём `go.mod`.
+
+Подробнее: [[managing-dependencies#Использование code module из local directory|Requiring module code in a local directory]].
+
+## Публикация pre-release versions {#pre-release}
+
+Pre-release позволяет дать module users для тестирования и feedback без guarantees stability.
 
 Примеры:
 
@@ -48,78 +70,123 @@ v0.2.1-beta.1
 v1.2.3-alpha
 ```
 
-Поскольку `go` обычно предпочитает release versions, пользователь должен запросить pre-release явно:
+Pre-release identifier добавляется к semantic version. Подробнее: [[version-numbers|Module version numbering]].
+
+Users должны явно указать pre-release version в `go get`, потому что по умолчанию Go предпочитает обычный release pre-release version:
 
 ```bash
 go get example.com/theirmodule@v1.2.3-alpha
 ```
 
-Публикация выполняется repository tag'ом с соответствующим identifier.
+Pre-release публикуется repository tag'ом с соответствующим identifier. См. [[publishing|Публикация module]].
 
-## Первый нестабильный v0
+## Публикация первой unstable version {#first-unstable}
 
-Versions `v0.x.x` не обещают stability/backward compatibility, но позволяют получать feedback до v1.
+Versions `v0.x.x` не гарантируют stability или backward compatibility, но позволяют users начать использовать module и давать feedback до v1.
 
-Пример:
+После v0 можно increment'ить minor/patch numbers, продолжая развивать API.
+
+Например:
 
 ```text
 v0.1.3
 ```
 
-Minor и patch компоненты v0 можно увеличивать по мере развития API. Breaking changes внутри v0 допустимы, однако их всё равно стоит документировать.
+Unstable release публикуется repository tag'ом v0. Подробнее: [[publishing|Публикация module]].
 
-## Первый stable release
+## Публикация первой stable version {#first-stable}
 
-Первый stable release имеет `v1.x.x`, обычно начиная с:
+Первый stable release имеет version `v1.x.x`. Обычно ему предшествуют pre-release и v0 versions, где API получает feedback, fixes и стабилизируется.
+
+С v1 maintainer берёт на себя commitments:
+
+- users смогут upgrade'иться на последующие minor/patch releases того же major без breaking client code;
+- public API, включая function/method signatures, не будет изменяться backward-incompatible способом;
+- exported types не будут удаляться;
+- backward-compatible API additions, например новые struct fields, будут выходить как minor releases;
+- bug fixes, включая security fixes, будут выходить в patch или minor releases.
+
+> [!note]
+> v0 не гарантирует compatibility, поэтому при переходе v0 → v1 можно внести breaking changes: v0 изначально не считалась stable.
+
+Пример первой stable version:
 
 ```text
 v1.0.0
 ```
 
-С v1 maintainer фактически обещает пользователям:
+Stable release публикуется tag'ом v1. Подробнее: [[publishing|Публикация module]].
 
-- последующие minor и patch releases того же major не должны ломать существующий client code;
-- не будут удаляться exported API элементы или намеренно ломаться signatures;
-- backward-compatible additions попадут в minor releases;
-- bug/security fixes — в patch либо minor release.
+## Публикация bug fixes {#bug-fixes}
 
-Переход v0 → v1 может включать breaking changes, потому что v0 не гарантировал compatibility.
+Release только с bug fixes называется **patch release**.
 
-## Patch releases
+Patch release не должен содержать changes public API. Consumer code может безопасно upgrade'иться без изменений.
 
-Patch release содержит bug fixes и не должен менять public API.
+> [!important]
+> Patch release по возможности не должен upgrade'ить собственные transitive dependencies более чем на patch release. Иначе user, обновляющий patch вашего module, может неожиданно получить более invasive change transitive dependency.
 
-```text
-v1.0.0 -> v1.0.1
-```
-
-Официальный guide также рекомендует не делать в patch release без необходимости значительные upgrades транзитивных dependencies: иначе пользователь, обновляя только patch вашего module, может неожиданно получить более рискованное изменение dependency graph.
-
-## Minor releases
-
-Minor release допускает backward-compatible изменения public API:
+Пример:
 
 ```text
-v1.0.1 -> v1.1.0
+old: v1.0.0
+new: v1.0.1
 ```
 
-Это могут быть новые functions, methods, fields или types, если существующий client code продолжает работать.
+Публикация выполняется tag'ом с incremented patch version.
 
-## Breaking API changes
+## Публикация non-breaking API changes {#non-breaking}
 
-Breaking changes требуют major release.
+Backward-compatible changes public API публикуются как **minor release**.
 
-Переход `v1 -> v2` включает больше действий, чем простой tag:
+Такая version может включать:
 
-1. Создать место для source нового major — часто отдельный branch.
-2. Изменить module path:
+- changes dependencies самого module;
+- новые functions;
+- новые methods;
+- новые struct fields;
+- новые types.
+
+Существующий calling code не должен ломаться.
+
+Пример:
 
 ```text
-example.com/mymodule/v2
+old: v1.0.1
+new: v1.1.0
 ```
 
-3. Обновить imports внутри самого module.
-4. Выпустить pre-release и получить feedback.
-5. Опубликовать tag, например `v2.0.0`.
+Minor release публикуется tag'ом с incremented minor part.
 
-Изменение module path специально предотвращает незаметное подтягивание breaking API: пользователь должен осознанно перейти на новый import path.
+## Публикация breaking API changes {#breaking}
+
+Backward-incompatible changes публикуются как **major release**.
+
+Major update может сильно повлиять на users и должен использоваться только при необходимости. Подробнее:
+
+- [[major-version|Разработка major version update]];
+- [Keeping your modules compatible](https://go.dev/blog/module-compatibility).
+
+В отличие от обычного tagging patch/minor release, major update требует дополнительных steps.
+
+1. Создайте отдельное место для source нового major — например, branch repository для новой major line и последующих minor/patch releases.
+
+2. В `go.mod` измените module path, добавив новый major suffix:
+
+   ```text
+   example.com/mymodule/v2
+   ```
+
+   Module path — identifier module, поэтому фактически создаётся новый module. Изменение package path гарантирует, что users случайно не импортируют breaking version: upgrade требует явной замены старого path новым.
+
+3. Обновите все imports packages этого module, включая internal imports внутри самого нового module.
+
+4. Перед official release публикуйте pre-release versions для feedback и bug reports.
+
+5. Опубликуйте major release repository tag'ом с incremented major number, например:
+
+   ```text
+   v1.5.2 -> v2.0.0
+   ```
+
+   Подробнее: [[publishing|Публикация module]].

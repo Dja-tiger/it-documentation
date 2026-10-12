@@ -1,62 +1,87 @@
 ---
-title: "Управление зависимостями"
+title: "Управление dependencies"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/managing-dependencies.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Управление зависимостями
+# Управление dependencies
 
-Когда код использует внешние packages, modules, в которых эти packages публикуются, становятся dependencies. Со временем зависимости приходится добавлять, обновлять, понижать, заменять локальными forks, удалять и проверять на целостность. Go предоставляет для этого встроенные dependency-management tools.
+Когда code использует external packages, эти packages — распространяемые как modules — становятся dependencies. Со временем их требуется обновлять или заменять. Go предоставляет dependency management tools, помогающие поддерживать applications в безопасном и согласованном состоянии.
 
-## Типичный workflow
+Эта страница описывает основные dependency management tasks. Большинство выполняется Go tools; также приведены дополнительные useful practices.
 
-Обычная последовательность выглядит так:
+**См. также:**
 
-1. Найти подходящий package на [pkg.go.dev](https://pkg.go.dev/).
-2. Добавить его import path в исходный код.
-3. Если проект ещё не module — включить dependency tracking через `go mod init`.
-4. Добавить dependency через Go tools.
-5. По мере необходимости upgrade/downgrade versions.
-6. Периодически синхронизировать dependency graph через `go mod tidy`.
+- Если Go modules незнакомы, начните с [[../getting-started|Getting Started]].
+- Использование `go` commands помогает сохранять requirements согласованными, а `go.mod` — valid. Reference: [Command go](https://pkg.go.dev/cmd/go/). CLI help: `go help <command>`, например `go help mod tidy`.
+- Go commands редактируют `go.mod`; его structure описана в [[gomod-ref|go.mod file reference]].
+- IDE/editor с module awareness упрощает работу; см. [[../editors|Editor plugins и IDEs]].
+- Разработка и публикация собственных modules рассматриваются отдельно: [[developing|Разработка и публикация modules]].
 
-## Dependencies как modules
+## Workflow использования и управления dependencies {#workflow}
 
-Go управляет внешними dependencies на уровне modules. Эту модель поддерживают:
+С Go tools можно находить и подключать packages с [pkg.go.dev](https://pkg.go.dev).
 
-- децентрализованная публикация module source;
-- pkg.go.dev для поиска packages и API docs;
-- semantic module versioning;
-- Go commands для разрешения, загрузки, обновления и проверки modules.
+Обычная последовательность:
 
-## Поиск и импорт packages
+1. [[#Поиск и import полезных packages|Найдите полезный package]] на pkg.go.dev.
+2. Импортируйте package в code.
+3. Если code ещё не находится в module, [[#Включение dependency tracking|включите dependency tracking]].
+4. [[#Добавление dependency|Добавьте external packages как dependencies]].
+5. Со временем [[#Upgrade или downgrade dependency|upgrade/downgrade versions]] по необходимости.
 
-На pkg.go.dev найдите package и скопируйте его package path. Затем импортируйте его:
+## Управление dependencies как modules {#modules}
+
+Dependencies в Go управляются как modules, содержащие импортируемые packages.
+
+Модель поддерживается следующими механизмами:
+
+- **Децентрализованная публикация.** Maintainers публикуют modules из собственных repositories и присваивают version numbers.
+- **pkg.go.dev.** Search engine и documentation browser для поиска modules/packages.
+- **Version numbering convention.** Позволяет понимать stability и backward compatibility; см. [[version-numbers|Нумерация versions module]].
+- **Go tools.** Скачивание source, upgrades и другие dependency operations.
+
+## Поиск и import полезных packages {#locating_packages}
+
+На [pkg.go.dev](https://pkg.go.dev) найдите package с нужной functionality.
+
+На package page скопируйте package path и используйте его в import:
 
 ```go
 import "rsc.io/quote"
 ```
 
-После изменения imports module dependency необходимо разрешить и записать в `go.mod`/`go.sum`.
+После import включите dependency tracking и получите source package для compilation. См. [[#Включение dependency tracking]] и [[#Добавление dependency]].
 
-## Включение dependency tracking
+## Включение dependency tracking {#enable_tracking}
 
-Перейдите в root проекта и создайте module:
+Чтобы отслеживать dependencies, поместите code в собственный module. В root source tree создаётся `go.mod`, где перечисляются managed dependencies.
 
-```bash
-go mod init example/mymodule
+В root directory:
+
+```text
+$ go mod init example/mymodule
 ```
 
-Аргумент — module path. Если module будет публиковаться, лучше сразу использовать будущий repository path.
+Argument `go mod init` — module path. Если возможно, это должен быть repository location source code.
 
-Go tools изменяют `go.mod` при операциях с dependencies. При скачивании dependencies также формируется `go.sum` с checksums modules. `go.mod` и `go.sum` следует хранить в version control.
+Если repository location пока неизвестен, используйте безопасный temporary prefix — domain, которым вы владеете, company name или другой controlled namespace. См. [[#Именование module]].
 
-## Выбор module path
+По мере работы Go tools обновляют `go.mod`.
 
-Module path становится именем module и префиксом import paths всех его packages.
+При добавлении dependencies также создаётся `go.sum` с checksums modules. Go использует его для проверки integrity скачанных module files, в том числе на machines других developers.
+
+Commit'ьте `go.mod` и `go.sum` вместе с code.
+
+Подробнее: [[gomod-ref|go.mod reference]].
+
+## Именование module {#naming_module}
+
+Module path — имя module и prefix import paths всех packages внутри него. Выбирайте path, который не конфликтует с другими modules.
 
 Типичная форма:
 
@@ -64,114 +89,149 @@ Module path становится именем module и префиксом impor
 <prefix>/<descriptive-text>
 ```
 
-`prefix` обычно является repository location, например:
+### Prefix
+
+Обычно описывает origin module.
+
+Лучший вариант для published module — repository location, например:
 
 ```text
-github.com/project-name/mymodule
+github.com/<project-name>/
 ```
 
-Если repository ещё неизвестен, можно временно использовать уникальное имя, которым вы управляете, например domain/company name.
+Если repository path не используется, выберите namespace, который контролируете, например company name. Избегайте generic names вроде `widgets`, `utilities`, `app`.
 
-Не используйте слишком общие prefixes вроде `widgets`, `utilities` или `app`, если существует риск конфликта.
+### Descriptive text
 
-Go резервирует некоторые prefixes для documentation/testing scenarios:
+Обычно project name. Основной смысл functionality всё равно несут package names; module path создаёт namespace для них.
 
-- `test` — для локальных test modules;
-- `example` — для examples в документации;
-- `example.com` часто используется в примерах, имитирующих публикуемый module.
+### Зарезервированные module path prefixes
 
-## Добавление dependency
+Go гарантирует, что следующие prefixes не будут использоваться обычными package names:
 
-После импорта package используйте `go get`:
+- `test` — для modules, создаваемых локально в tests. Например test может выполнить `go mod init test`, затем настроить temporary module для проверки source analyzer.
+- `example` — используется в документации Go для локальных examples/tutorials.
 
-```bash
-go get .
+`example.com` также используется в docs, когда example имитирует потенциально published module.
+
+## Добавление dependency {#adding_dependency}
+
+После import package из published module добавьте module как dependency через [`go get`](https://pkg.go.dev/cmd/go#hdr-Add_dependencies_to_current_module_and_install_them).
+
+`go get`:
+
+- при необходимости добавляет `require` directives в `go.mod` для modules, нужных packages command line;
+- скачивает module source для compilation;
+- может получать modules через proxy (например `proxy.golang.org`) либо напрямую из VCS repository;
+- сохраняет source в local module cache;
+- authenticates каждый downloaded module, проверяя неизменность опубликованного content. Если content version изменился после публикации, Go tools возвращают security error.
+
+Добавить dependencies текущего package:
+
+```text
+$ go get .
 ```
 
-или для конкретного module:
+Добавить конкретный module:
 
-```bash
-go get example.com/theirmodule
+```text
+$ go get example.com/theirmodule
 ```
 
-`go get` при необходимости:
+Location download можно настраивать через module proxy; см. [[#Настройка module proxy server]].
 
-- добавляет `require` directives в `go.mod`;
-- выбирает необходимую module version;
-- скачивает module source через proxy или VCS;
-- сохраняет содержимое в local module cache;
-- аутентифицирует скачанный module.
+## Получение конкретной dependency version {#getting_version}
 
-Если опубликованное содержимое той же module version внезапно отличается от ранее зафиксированного checksum, Go tools выдают security error. Это защищает от изменения уже опубликованных versions.
+`go get` принимает `@version` и обновляет соответствующий `require` в `go.mod`.
 
-## Получение конкретной version
+Это полезно, если:
+
+- нужно проверить pre-release;
+- current version не подходит и требуется известная stable version;
+- нужно upgrade/downgrade dependency.
 
 Конкретная version:
 
-```bash
-go get example.com/theirmodule@v1.3.4
+```text
+$ go get example.com/theirmodule@v1.3.4
 ```
 
 Latest:
 
-```bash
-go get example.com/theirmodule@latest
+```text
+$ go get example.com/theirmodule@latest
 ```
 
-В `go.mod` это отражается, например, так:
+Соответствующий `go.mod`:
 
 ```text
 require example.com/theirmodule v1.3.4
 ```
 
-Конкретная версия полезна для pre-release testing, rollback на известную рабочую version, upgrade и downgrade.
+## Поиск доступных updates {#discovering_updates}
 
-## Поиск доступных updates
+[`go list -m`](https://go.dev/ref/mod#go-list-m) показывает текущие dependency modules и available versions.
 
-Показать dependencies текущего module и доступные newer versions:
+Все dependencies вместе с latest available:
 
-```bash
-go list -m -u all
+```text
+$ go list -m -u all
 ```
 
-Для одного module:
+Один module:
 
-```bash
-go list -m -u example.com/theirmodule
+```text
+$ go list -m -u example.com/theirmodule
 ```
 
-После анализа available versions нужная version устанавливается через `go get module@version`.
+После обнаружения update протестируйте новую version до принятия решения об upgrade.
 
-## Upgrade и downgrade dependency
+## Upgrade или downgrade dependency {#upgrading}
 
-1. Определите доступные versions через `go list -m -u`.
-2. Установите нужную через `go get module@version`.
+1. Найдите available versions через `go list`, как описано выше.
+2. Получите нужную version через `go get module@version`.
 
-Go пересчитывает module graph с учётом Minimal Version Selection и может скорректировать связанные requirements.
+## Синхронизация dependencies с code {#synchronizing}
 
-## Синхронизация dependencies
+После изменений code и imports managed dependencies могут перестать точно соответствовать реально используемым packages.
 
-После серии изменений source/imports dependency declarations могут перестать точно соответствовать используемым packages. Для синхронизации применяйте:
+Используйте:
 
-```bash
-go mod tidy
+```text
+$ go mod tidy
 ```
 
-Команда:
+`go mod tidy`:
 
-- добавляет недостающие modules, необходимые imports/tests;
-- удаляет requirements, которые больше не нужны;
-- приводит `go.mod` и `go.sum` к согласованному состоянию.
+- добавляет missing modules, необходимые imported packages;
+- удаляет unused modules, которые больше не предоставляют relevant packages;
+- синхронизирует `go.mod` и `go.sum`.
 
-`-v` выводит информацию об удаляемых modules.
+Flag `-v` выводит информацию об удалённых modules.
 
-## Разработка и тестирование против неопубликованного module
+## Разработка и тестирование с unpublished module code {#unpublished}
 
-Dependency может ещё не быть опубликована либо вы можете тестировать локальный fix/fork.
+Можно указать dependency module, который ещё не опубликован. Source может находиться:
 
-### Локальный directory через `replace`
+- в его repository;
+- в вашем fork repository;
+- в local directory рядом с consumer module.
 
-Пример `go.mod`:
+Use cases:
+
+- вы fork'нули external module, чтобы исправить bug/add feature и протестировать change до pull request;
+- вы разрабатываете новый module, который пока недоступен через `go get`.
+
+### Использование code module из local directory {#local_directory}
+
+Чтобы consumer использовал local copy dependency, добавьте `replace` в `go.mod`.
+
+Это полезно при:
+
+- параллельной разработке двух собственных modules;
+- тестировании fixes/features external module из local checkout.
+
+Пример:
 
 ```text
 module example.com/mymodule
@@ -183,21 +243,25 @@ require example.com/theirmodule v0.0.0-unpublished
 replace example.com/theirmodule v0.0.0-unpublished => ../theirmodule
 ```
 
-Удобнее редактировать через Go tools:
+Fictitious version `v0.0.0-unpublished` гарантирует, что dependency разрешается только через replacement.
 
-```bash
-go mod edit -replace=example.com/theirmodule@v0.0.0-unpublished=../theirmodule
-go get example.com/theirmodule@v0.0.0-unpublished
+Настройте pair через Go tools:
+
+```text
+$ go mod edit -replace=example.com/theirmodule@v0.0.0-unpublished=../theirmodule
+$ go get example.com/theirmodule@v0.0.0-unpublished
 ```
 
-> [!warning]
-> При `replace` на локальный/forked source обычная authentication внешнего module не применяется так же, как при стандартной загрузке опубликованной version.
+> [!note]
+> При `replace` Go tools не authenticate external module способом, описанным в [[#Добавление dependency]].
 
-Начиная с Go 1.18 для одновременной разработки нескольких modules также существует workspace mode и `go.work`.
+С Go 1.18 доступен workspace mode для одновременной работы с несколькими modules. См. [[../tutorial/workspaces|Multi-module workspaces]].
 
-### Fork внешнего repository
+### Использование external module из собственного repository fork {#external_fork}
 
-Можно сохранить исходные import paths, но перенаправить module на fork:
+Если external module fork'нут для fix/feature, Go tools можно направить на fork через `replace`.
+
+Пример:
 
 ```text
 module example.com/mymodule
@@ -209,124 +273,171 @@ require example.com/theirmodule v1.2.3
 replace example.com/theirmodule v1.2.3 => example.com/myfork/theirmodule v1.2.3-fixed
 ```
 
-Определить текущую version и добавить replacement:
+Сначала узнайте current version:
 
 ```text
 $ go list -m example.com/theirmodule
 example.com/theirmodule v1.2.3
+```
+
+Затем задайте replacement:
+
+```text
 $ go mod edit -replace=example.com/theirmodule@v1.2.3=example.com/myfork/theirmodule@v1.2.3-fixed
 ```
 
-Imports в source code менять не нужно: `replace` изменяет resolution module source, а не logical package path.
+Как и для local replace, authentication original module не применяется.
 
-## Конкретный commit или branch
+## Получение конкретного commit по repository identifier {#repo_identifier}
 
-`go get` может принимать repository identifier.
+`go get` может добавить unpublished code конкретного commit.
 
-Commit:
+По commit hash:
 
-```bash
-go get example.com/theirmodule@4cf76c2
+```text
+$ go get example.com/theirmodule@4cf76c2
 ```
 
-Branch:
+По branch:
 
-```bash
-go get example.com/theirmodule@bugfixes
+```text
+$ go get example.com/theirmodule@bugfixes
 ```
 
-Go записывает выбранный revision в `go.mod` как корректную pseudo-version.
+`go get` добавит `require` с pseudo-version, generated из commit metadata.
 
-## Удаление dependency
+## Удаление dependency {#removing_dependency}
 
-Удалить все неиспользуемые dependencies:
+Удалить все unused dependencies:
 
-```bash
-go mod tidy
+```text
+$ go mod tidy
 ```
 
 Удалить конкретный module:
 
-```bash
-go get example.com/theirmodule@none
+```text
+$ go get example.com/theirmodule@none
 ```
 
-При удалении Go может также downgrade/remove dependencies, которые зависят от удаляемого module.
+`go get ...@none` может также downgrade'ить или удалить другие dependencies, зависящие от удаляемого module.
 
-## Tool dependencies
+## Tool dependencies {#tools}
 
-В Go 1.24+ developer tools можно хранить как module dependencies через `tool` directive.
+Tool dependencies позволяют управлять developer tools, написанными на Go: generators, linters, formatters и т. п.
 
-Добавить tool:
+Пример — [`stringer`](https://pkg.go.dev/golang.org/x/tools/cmd/stringer) вместе с [`go generate`](https://go.dev/blog/generate).
 
-```bash
-go get -tool golang.org/x/tools/cmd/stringer
+### Go 1.24+
+
+Добавить tool dependency:
+
+```text
+$ go get -tool golang.org/x/tools/cmd/stringer
 ```
 
-После этого tool можно запускать:
+Go добавит `tool` directive в `go.mod` и необходимые `require` directives.
 
-```bash
-go tool stringer
+После этого tool можно запускать по last package path component:
+
+```text
+$ go tool stringer
 ```
 
-Если короткое имя неоднозначно либо конфликтует с встроенным tool, используйте полный package path:
+Если short name неоднозначен либо совпадает с tool из Go distribution, используйте full package path:
 
-```bash
-go tool golang.org/x/tools/cmd/stringer
+```text
+$ go tool golang.org/x/tools/cmd/stringer
 ```
 
 Список доступных tools:
 
-```bash
-go tool
+```text
+$ go tool
 ```
 
-Если `tool` directive добавлен вручную, module, содержащий tool, также должен присутствовать в `require`. Самый простой способ восстановить requirements:
+`tool` directive можно добавить вручную, но module, содержащий tool, должен присутствовать в `require`. Missing requirements проще всего восстановить:
 
-```bash
-go mod tidy
+```text
+$ go mod tidy
 ```
 
-Tool dependencies входят в обычный module graph, участвуют в Minimal Version Selection и учитывают `require`, `replace`, `exclude`.
+Requirements tool dependencies участвуют в module graph как обычные requirements:
 
-Meta-pattern `tool` позволяет применять команды ко всем tools:
+- minimal version selection;
+- `require`;
+- `replace`;
+- `exclude`.
 
-```bash
-go get tool
-go install tool
+Благодаря module graph pruning dependency module, который сам использует tool dependency, обычно не заставляет ваш module наследовать requirements, нужные только для этого tool.
+
+Meta-pattern `tool` позволяет выполнять operation над всеми tools одновременно.
+
+Upgrade всех tools:
+
+```text
+$ go get tool
 ```
 
-До Go 1.24 аналогичный эффект обычно реализовывали через blank import в excluded-by-build-constraint `.go` file и запускали tool через `go run full/package/path`.
+эквивалентно:
 
-## Module proxy
+```text
+$ go get tool@upgrade
+```
 
-По умолчанию Go tools используют public proxy и затем direct VCS access:
+Install всех tools в `$GOBIN`:
+
+```text
+$ go install tool
+```
+
+### До Go 1.24
+
+Аналогичный effect можно получить через blank import tool package в `.go` file, исключённом из normal build с помощью build constraints. Tool затем запускается через `go run <full-package-path>`.
+
+## Настройка module proxy server {#proxy_server}
+
+По умолчанию Go tools скачивают modules через `proxy.golang.org` или непосредственно из repository module.
+
+Другой proxy может использоваться для:
+
+- internal/private infrastructure;
+- дополнительного контроля dependencies;
+- caching/auditing policies.
+
+Настройка выполняется через `GOPROXY`.
+
+Default behavior:
 
 ```text
 GOPROXY="https://proxy.golang.org,direct"
 ```
 
-Другой proxy задаётся через `GOPROXY`.
+Можно указать несколько URLs. Semantics separator важна.
 
-### Разница `,` и `|`
+### Comma `,`
 
-Comma означает переход к следующему proxy только при HTTP `404` или `410`:
+Следующий proxy используется только если текущий вернул HTTP `404` или `410`:
 
 ```text
 GOPROXY="https://proxy.example.com,https://proxy2.example.com"
 ```
 
-Pipe означает переход к следующему URL независимо от HTTP error code:
+### Pipe `|`
+
+Следующий proxy используется независимо от HTTP error code:
 
 ```text
 GOPROXY="https://proxy.example.com|https://proxy2.example.com"
 ```
 
-Это важная разница для security/policy: comma позволяет первому proxy блокировать module ошибкой, отличной от `404/410`; pipe разрешает fallback и при других ошибках.
+Подробнее: [Module downloading and verification](https://pkg.go.dev/cmd/go#hdr-Module_downloading_and_verification).
 
-## Private modules
+### Private modules
 
-Для modules, которые не должны запрашиваться через public proxy/checksum infrastructure, настраивается `GOPRIVATE` и при необходимости `GONOPROXY`/`GONOSUMDB`.
+Modules часто находятся в VCS servers/proxies, недоступных public internet.
+
+`GOPRIVATE` настраивает `go` command для private module prefixes. `GOPRIVATE` или `GONOPROXY` могут содержать glob patterns prefixes, которые нельзя запрашивать через public proxy.
 
 Пример:
 
@@ -334,4 +445,4 @@ GOPROXY="https://proxy.example.com|https://proxy2.example.com"
 GOPRIVATE=*.corp.example.com,*.research.example.com
 ```
 
-Значения представляют собой comma-separated glob patterns module path prefixes. Это позволяет `go` command обращаться к private sources согласно локальной конфигурации, не отправляя private module paths в public proxy.
+После такой настройки `go` command получает private modules из private sources, не отправляя matching module paths в public proxy infrastructure.

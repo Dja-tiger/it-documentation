@@ -1,73 +1,101 @@
 ---
-title: "Управление исходным кодом module"
+title: "Управление source module"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/modules/managing-source.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Управление исходным кодом module
+# Управление source module
 
-При разработке module для внешних пользователей соблюдение repository conventions делает module проще для загрузки, versioning и сопровождения.
+При разработке modules для публикации другим developers соблюдение repository conventions делает modules проще в использовании.
 
-Go поддерживает публикацию modules из Git, Subversion, Mercurial, Bazaar и Fossil repositories.
+Эта страница описывает actions при управлении module repository. Последовательный workflow перехода от version к version см. в [[release-workflow|Module release and versioning workflow]].
 
-## Как Go tools находят опубликованный module
+Часть conventions является обязательной, остальные — best practices. Предполагается знакомство с базовыми module practices из [[managing-dependencies|Управление dependencies]].
 
-В децентрализованной модели Go source code остаётся в вашем repository. Go tools опираются на соглашения о module paths и repository tags.
+Go поддерживает публикацию modules из repositories следующих systems:
 
-Когда разработчик использует `go get` для package, команда в общих чертах:
+- Git;
+- Subversion;
+- Mercurial;
+- Bazaar;
+- Fossil.
 
-1. По `import` statements определяет module path, которому принадлежит package.
-2. По URL, производному от module path, ищет module через proxy или непосредственно repository.
-3. Сопоставляет требуемую module version с repository tag. Если version явно не задана, выбирается подходящая latest release.
-4. Загружает source code в local module cache.
+Обзор module development: [[developing|Разработка и публикация modules]].
 
-## Организация кода в repository
+## Как Go tools находят опубликованный module {#tools}
 
-Начальный commit module обычно включает:
+Go использует децентрализованную модель публикации modules: code остаётся в repository. Go tools полагаются на naming rules, связывающие repository paths и repository tags с module name и version number.
 
-| Файл/каталог | Назначение |
-|---|---|
-| `LICENSE` | Лицензия module. |
-| `go.mod` | Module path, Go version и dependencies. Предпочтительно изменять через Go commands. |
-| `go.sum` | Cryptographic hashes dependencies для проверки скачанных modules. При отсутствии dependencies может отсутствовать или быть пустым. Не следует редактировать вручную. |
-| Package directories и `.go` files | Собственно packages и source code module. |
+Если repository соблюдает эти requirements, Go tools вроде [`go get`](https://go.dev/ref/mod#go-get) способны скачать module source.
 
-Пример начальной публикации через Git:
+Когда developer выполняет `go get` для packages, импортированных его code, command:
 
-```bash
-git init
-git add --all
-git commit -m "mycode: initial commit"
-git push
+1. По `import` statements определяет module path внутри package path.
+2. По URL, derived from module path, находит source module через module proxy server либо непосредственно в repository.
+3. Находит source нужной module version, сопоставляя version number с repository tag. Если version заранее не указана, выбирается latest release version.
+4. Получает module source и скачивает его в local module cache developer.
+
+## Организация code в repository {#repository}
+
+Соблюдение conventions упрощает maintenance и улучшает опыт users. Само размещение module code в repository обычно не отличается от другого source code.
+
+Official guide показывает hierarchy простого module с двумя packages. Initial commit должен включать следующие files.
+
+| File | Назначение |
+| --- | --- |
+| `LICENSE` | License module. |
+| `go.mod` | Описывает module, включая module path и dependencies. Подробнее: [[gomod-ref|go.mod reference]]. Module path задаётся `module` directive, например `module example.com/mymodule`. Хотя `go.mod` можно редактировать вручную, надёжнее менять его через Go commands. |
+| `go.sum` | Содержит cryptographic hashes dependencies. Go tools используют hashes для authentication скачанных modules. При mismatch Go сообщает security error. Если dependencies отсутствуют, file может быть пустым/отсутствовать. Не редактируйте вручную; лишние entries удаляются через `go mod tidy`. |
+| Package directories и `.go` sources | Directories и files, составляющие packages/source module. |
+
+Пример initial Git workflow:
+
+```text
+$ git init
+$ git add --all
+$ git commit -m "mycode: initial commit"
+$ git push
 ```
 
-## Выбор scope repository
+## Выбор scope repository {#repository-scope}
 
-Код стоит помещать в отдельный module, когда он должен versioned независимо от другого кода.
+Code следует публиковать в отдельном module, если он должен version'иться независимо от code других modules.
 
-Один module в корне одного repository — самый простой для сопровождения вариант. Однако при необходимости один repository может содержать несколько modules.
+Repository с одним module в root проще поддерживать, особенно при выпуске minor/patch versions и branching новых major versions. Но при необходимости один repository может содержать несколько modules.
 
-### Один module на repository
+### Один module на repository {#one-module-source}
 
-`go.mod` находится в root repository, packages — в root и подкаталогах.
+При single-module model `go.mod` находится в repository root, а subdirectories содержат Go packages.
 
-Преимущество: version tags не нужно prefix'ить путём подкаталога module.
+Это самый простой layout: не требуется prefix'ить version tag path'ом subdirectory module.
 
-### Несколько modules в одном repository
+Conceptually:
 
-Каждый subdirectory, являющийся module root, должен иметь свой `go.mod`.
+```text
+repository-root/
+├── go.mod
+├── go.sum
+├── package1/
+└── package2/
+```
 
-Если module находится в subdirectory, repository version tag должен быть prefix'ирован именем этого subdirectory.
+### Несколько modules в одном repository {#multiple-module-source}
 
-Например, для module `example.com/mymodules/module1` версии `v1.2.3`:
+Один repository может содержать несколько independently versioned modules.
 
-- module path: `example.com/mymodules/module1`;
-- version tag: `module1/v1.2.3`;
-- package path пользователя: `example.com/mymodules/module1/package1`;
-- `require`: `example.com/mymodules/module1 v1.2.3`.
+Каждый subdirectory, являющийся module root, должен иметь собственный `go.mod`.
 
-Эта связь между physical repository layout, module path и tag name критична: Go tools должны однозначно определить, какой каталог repository соответствует конкретной module version.
+В этом layout version tag **должен** быть prefixed именем subdirectory module root.
+
+Для module `example.com/mymodules/module1` version `v1.2.3`:
+
+- Module path: `example.com/mymodules/module1`
+- Version tag: `module1/v1.2.3`
+- Package path для user import: `example.com/mymodules/module1/package1`
+- `require` в user module: `example.com/mymodules/module1 v1.2.3`
+
+Official guide иллюстрирует этот layout diagram с двумя module roots в одном repository.

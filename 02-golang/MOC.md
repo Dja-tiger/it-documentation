@@ -29,6 +29,7 @@ translation_status: "in_progress"
 - [[docs/modules/gomod-ref|Справочник go.mod]]
 - [[docs/modules/layout|Организация Go-модуля]]
 - [[docs/modules/managing-source|Организация исходного кода]]
+- [[docs/modules/publishing|Публикация module]]
 - [[docs/modules/version-numbers|Нумерация версий]]
 - [[docs/modules/major-version|Major versions]]
 - [[docs/modules/release-workflow|Release workflow]]
@@ -45,7 +46,7 @@ translation_status: "in_progress"
 
 ## Tutorials
 
-- [[docs/tutorial/getting-started|Начало работы]]
+- [[docs/getting-started|Начало работы]]
 - [[docs/tutorial/create-module|Создание модуля]]
 - [[docs/tutorial/call-module-code|Вызов кода другого модуля]]
 - [[docs/tutorial/generics|Generics]]

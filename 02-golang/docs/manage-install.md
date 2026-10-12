@@ -5,7 +5,7 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/manage-install.html"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Управление установками Go

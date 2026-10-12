@@ -102,8 +102,8 @@ def resolve_wikilink(raw_target: str, source: Path) -> Path | None:
         return None
 
     resolved = source.parent / target
-    if resolved.suffix == "":
-        resolved = resolved.with_suffix(".md")
+    if resolved.suffix.lower() != ".md":
+        resolved = Path(f"{resolved}.md")
     return resolved.resolve()
 
 

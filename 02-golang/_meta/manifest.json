@@ -22,7 +22,9 @@
     "status": "in_progress",
     "reason": "The original translation pass condensed some source documents. Full-fidelity restoration is being completed page by page against the pinned upstream revisions.",
     "reviewed_documents": [
+      "docs/articles/wiki.md",
       "docs/build-cover.md",
+      "docs/code.md",
       "docs/contribute.md",
       "docs/database/cancel-operations.md",
       "docs/database/change-data.md",
@@ -33,8 +35,12 @@
       "docs/database/prepared-statements.md",
       "docs/database/querying.md",
       "docs/database/sql-injection.md",
+      "docs/diagnostics.md",
+      "docs/editors.md",
       "docs/getting-started.md",
       "docs/install-source.md",
+      "docs/install.md",
+      "docs/manage-install.md",
       "docs/memory-model.md",
       "docs/modules/developing.md",
       "docs/modules/gomod-ref.md",
@@ -45,6 +51,7 @@
       "docs/modules/publishing.md",
       "docs/modules/release-workflow.md",
       "docs/modules/version-numbers.md",
+      "docs/race-detector.md",
       "docs/tutorial/add-a-test.md",
       "docs/tutorial/call-module-code.md",
       "docs/tutorial/compile-install.md",
@@ -66,22 +73,24 @@
     ],
     "sampled_documents_requiring_full_fidelity_review": [
       "docs/spec.md",
-      "docs/comment.md"
+      "docs/comment.md",
+      "docs/godebug.md"
     ],
     "frontmatter_note": "Individual pages may still carry historical translation_status=translated. Until a page receives a source-parity review, that value must not be interpreted as reviewed full fidelity. docs/modules/reference.md currently exists locally but remains in a second source-parity pass despite its provisional page frontmatter."
   },
   "coverage": {
     "getting_started": "reviewed",
+    "installation": "reviewed",
+    "how_to_write_go_code": "reviewed",
+    "web_applications_tutorial": "reviewed",
     "language_and_style": "present_unreviewed",
     "modules_and_toolchain": "module_guides_reviewed_reference_in_review_toolchain_unreviewed",
-    "runtime_and_performance": "memory_model_reviewed_rest_present_unreviewed",
+    "runtime_and_performance": "memory_model_race_detector_diagnostics_coverage_reviewed_rest_present_unreviewed",
     "tutorials": "reviewed",
     "database_sql": "reviewed",
     "security": "present_unreviewed",
     "go_1_27_release_notes": "present_unreviewed",
-    "contribution_guide": "reviewed",
-    "install_from_source": "reviewed",
-    "integration_coverage": "reviewed"
+    "contribution_guide": "reviewed"
   },
   "documents": {
     "present_localized": [
@@ -181,9 +190,10 @@
   ],
   "notes": [
     "The actual docs tree is the source of truth for local file presence.",
-    "The previous manifest referenced five non-existent files and omitted existing files; this was corrected during the 2026-10-12 review and restoration pass.",
+    "The previous manifest referenced non-existent files and omitted existing files; this was corrected during the 2026-10-12 review and restoration pass.",
     "During full-fidelity restoration, module-conclusion.html was discovered through upstream navigation and added to the local tutorial tree.",
     "Go Modules Reference now has a local mirror, but it remains under page-level source-parity review because the upstream reference is substantially larger than the compact module guides.",
+    "Official mirror pages must not add assistant-authored operational advice that is absent from upstream; such material belongs in a separate learning or notes layer.",
     "Code, identifiers, command names, API names, configuration keys, and protocol tokens are preserved in their canonical form.",
     "SQL examples follow the repository convention with SQL keywords in lowercase."
   ]

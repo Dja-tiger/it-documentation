@@ -1,95 +1,73 @@
 ---
-title: "Управление database connections"
+title: "Управление connections"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/database/manage-connections.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Управление connections
 
-Для большинства программ defaults `sql.DB` connection pool не требуют изменения. Tuning нужен при известных database limits, высокой concurrency, load balancer behavior или специфических connection-local требованиях.
+Для подавляющего большинства программ defaults connection pool `sql.DB` менять не требуется. Однако некоторым приложениям необходим tuning параметров pool или явная работа с отдельными connections. Эта страница описывает оба варианта.
 
-`sql.DB` concurrency-safe и рассчитан на совместное использование несколькими goroutines.
+Database handle [`sql.DB`](https://pkg.go.dev/database/sql#DB) безопасен для concurrent use несколькими goroutines — в терминологии других языков это часто называется thread-safe.
 
-При `Query`/`Exec` pool:
+Некоторые database access libraries строятся вокруг connection, которую можно использовать только для одной operation одновременно. Чтобы совместить такую модель с concurrency Go, каждый `sql.DB` управляет pool активных connections к underlying database и при необходимости создаёт новые для parallel operations.
 
-1. берёт свободное connection;
-2. либо создаёт новое;
-3. выполняет operation;
-4. возвращает connection в pool.
+Для большинства задач встроенного connection pool достаточно. При вызове `sql.DB.Query` или `sql.DB.Exec` implementation получает свободную connection из pool либо при необходимости создаёт новую. После завершения operation connection возвращается в pool. Это обеспечивает высокий уровень parallelism для database access.
 
-## Pool statistics
+### Настройка параметров connection pool {#connection_pool_properties}
 
-Для наблюдения используйте:
+Можно задавать свойства, определяющие, как пакет `sql` управляет connection pool. Для оценки эффекта этих настроек используйте [`DB.Stats`](https://pkg.go.dev/database/sql#DB.Stats).
 
-```go
-stats := db.Stats()
-```
+#### Максимальное число открытых connections {#max_open_connections}
 
-Полезны `OpenConnections`, `InUse`, `Idle`, `WaitCount`, `WaitDuration`, counters closed connections.
+[`DB.SetMaxOpenConns`](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns) ограничивает количество одновременно открытых connections.
 
-## Max open connections
+После достижения limit новые database operations будут ждать завершения существующей operation, после чего `sql.DB` сможет предоставить connection.
 
-```go
-db.SetMaxOpenConns(n)
-```
-
-Ограничивает число одновременно открытых connections. После достижения limit новые operations ждут освобождения connection.
+По умолчанию, если все существующие connections заняты и требуется ещё одна, `sql.DB` создаёт новую connection.
 
 > [!warning]
-> Ограниченный pool начинает вести себя как semaphore. Неправильная архитектура может создать deadlock, особенно если operation удерживает connection и одновременно ждёт другую operation, которой также нужен connection.
+> После установки limit использование database начинает напоминать захват lock или semaphore. Поэтому приложение может попасть в deadlock, ожидая новую database connection.
 
-## Max idle connections
+#### Максимальное число idle connections {#max_idle_connections}
 
-```go
-db.SetMaxIdleConns(n)
-```
+[`DB.SetMaxIdleConns`](https://pkg.go.dev/database/sql#DB.SetMaxIdleConns) меняет maximum number idle connections, которые `sql.DB` сохраняет в pool.
 
-Управляет количеством idle connections, которые pool сохраняет открытыми.
+После завершения SQL operation connection обычно не закрывается немедленно: приложению вскоре может понадобиться следующая operation, и сохранение открытой connection позволяет избежать нового connection establishment.
 
-Высокое значение уменьшает reconnect overhead при bursty parallel traffic, но увеличивает число постоянно открытых server connections.
+По умолчанию `sql.DB` сохраняет до двух idle connections. В приложениях с высоким parallelism увеличение этого limit может уменьшить частые reconnects.
 
-Default historically поддерживает небольшой idle pool (официальный guide указывает два idle connections).
+#### Максимальное время простоя connection {#max_idle_time}
 
-## Max idle time
+[`DB.SetConnMaxIdleTime`](https://pkg.go.dev/database/sql#DB.SetConnMaxIdleTime) задаёт maximum duration, в течение которого connection может оставаться idle перед закрытием.
 
-```go
-db.SetConnMaxIdleTime(d)
-```
+По умолчанию добавленная в pool idle connection остаётся там до следующего использования.
 
-Закрывает connections, простаивающие дольше заданного duration. Полезно, если `SetMaxIdleConns` поднят для bursts, но после снижения нагрузки лишние connections нужно постепенно освобождать.
+Если `DB.SetMaxIdleConns` увеличивается для обслуживания bursts параллельной активности, `DB.SetConnMaxIdleTime` можно использовать совместно с ним, чтобы позднее освободить избыточные connections, когда system снова простаивает.
 
-## Max connection lifetime
+#### Максимальный lifetime connection {#max_connection_lifetime}
 
-```go
-db.SetConnMaxLifetime(d)
-```
+[`DB.SetConnMaxLifetime`](https://pkg.go.dev/database/sql#DB.SetConnMaxLifetime) задаёт maximum duration, в течение которого connection может оставаться открытой до принудительного закрытия.
 
-Ограничивает общую lifetime connection независимо от активности.
+По умолчанию connection может использоваться и переиспользоваться неопределённо долго с учётом остальных pool limits.
 
-Полезно при:
+В некоторых системах — например, при использовании load-balanced database servers — полезно гарантировать, что приложение периодически reconnect'ится и не использует одну physical connection слишком долго.
 
-- load-balanced database endpoints;
-- server-side connection TTL;
-- topology rotation;
-- необходимости периодически перераспределять long-lived connections.
+### Использование выделенных connections {#dedicated_connections}
 
-## Dedicated connections
+Пакет `database/sql` предоставляет отдельный механизм для случаев, когда database придаёт implicit semantics последовательности operations, выполненных на **одной и той же connection**.
 
-Если несколько последовательных operations обязаны выполняться на одном physical connection, получите `*sql.Conn`:
+Самый распространённый пример — transactions. Обычно они начинаются `begin`, завершаются `commit` или `rollback`, а все commands между ними относятся к одной transaction. Для этого случая следует использовать встроенную transaction support пакета `sql`; см. [[execute-transactions|Выполнение транзакций]].
 
-```go
-conn, err := db.Conn(ctx)
-if err != nil {
-    return err
-}
-defer conn.Close()
-```
+Для других случаев, где последовательность независимых operations должна выполняться на одной physical connection, используйте dedicated connection.
 
-`sql.Conn` предоставляет:
+[`DB.Conn`](https://pkg.go.dev/database/sql#DB.Conn) получает выделенную connection — [`sql.Conn`](https://pkg.go.dev/database/sql#Conn).
+
+`sql.Conn` предоставляет methods:
 
 - `BeginTx`;
 - `ExecContext`;
@@ -98,4 +76,10 @@ defer conn.Close()
 - `QueryContext`;
 - `QueryRowContext`.
 
-Для обычных transactions используйте `sql.Tx`. Dedicated `Conn` нужен для иных connection-local semantics, например session state, temp objects или DB-specific operations.
+Они ведут себя аналогично соответствующим methods `DB`, но всегда используют именно эту dedicated connection.
+
+После завершения работы выделенную connection необходимо вернуть/освободить через:
+
+```go
+conn.Close()
+```

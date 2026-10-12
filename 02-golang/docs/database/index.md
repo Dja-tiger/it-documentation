@@ -5,71 +5,64 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/database/index.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Доступ к реляционным базам данных
 
-Стандартный package [`database/sql`](https://pkg.go.dev/database/sql) предоставляет общий API для работы с relational DBMS через database drivers.
+С помощью Go можно использовать в приложениях самые разные базы данных и подходы к доступу к данным. Страницы этого раздела описывают работу со стандартным пакетом [`database/sql`](https://pkg.go.dev/database/sql) для доступа к реляционным базам данных.
 
-Для первого end-to-end примера см. [[../tutorial/database-access|Tutorial: Accessing a relational database]].
+Вводный end-to-end tutorial см. в [[../tutorial/database-access|Tutorial: доступ к реляционной базе данных]].
 
-Помимо `database/sql`, Go ecosystem включает:
+Go поддерживает и другие технологии доступа к данным, в том числе ORM-библиотеки для более высокоуровневой работы с реляционными БД и нереляционные NoSQL-хранилища.
 
-- ORM libraries, например GORM и ent;
-- drivers/clients для NoSQL systems, включая MongoDB и Couchbase.
+- **Object-relational mapping (ORM) libraries.** Пакет `database/sql` предоставляет функции для более низкоуровневой логики доступа к данным, но Go также позволяет работать с хранилищами на более высоком уровне абстракции. Две популярные ORM-библиотеки: [GORM](https://gorm.io/index.html) ([package reference](https://pkg.go.dev/gorm.io/gorm)) и [ent](https://entgo.io/) ([package reference](https://pkg.go.dev/entgo.io/ent)).
+- **NoSQL data stores.** Сообщество Go разработало drivers для большинства NoSQL-хранилищ, включая [MongoDB](https://docs.mongodb.com/drivers/go/) и [Couchbase](https://docs.couchbase.com/go-sdk/current/hello-world/overview.html). Другие packages можно найти через [pkg.go.dev](https://pkg.go.dev/).
 
-## Поддерживаемые DBMS
+### Поддерживаемые СУБД {#supported_dbms}
 
-Через соответствующие drivers Go работает с большинством распространённых relational systems: MySQL, Oracle, PostgreSQL, SQL Server, SQLite и др. Список drivers поддерживается на Go Wiki SQLDrivers.
+Go поддерживает наиболее распространённые реляционные СУБД, включая MySQL, Oracle, Postgres, SQL Server, SQLite и другие.
 
-## Какой метод использовать
+Полный список drivers находится на wiki-странице [SQLDrivers](https://go.dev/wiki/SQLDrivers).
 
-`database/sql` разделяет APIs по типу операции:
+### Функции для выполнения запросов и изменения данных {#functions}
 
-- `QueryRow` / `QueryRowContext` — когда ожидается максимум одна строка;
-- `Query` / `QueryContext` — когда ожидается набор rows;
-- `Exec` / `ExecContext` — statements без result rows, например `insert`, `update`, `delete`.
+Пакет `database/sql` содержит функции, рассчитанные на разные виды database operations.
 
-Использование более конкретного API уменьшает лишние allocations/объекты и делает intent очевиднее.
+Для запросов можно использовать `Query` и `QueryRow`. `QueryRow` предназначен для случая, когда ожидается только одна строка, и позволяет избежать overhead возврата `sql.Rows`, содержащего единственную строку.
 
-## Transactions
+Для изменения данных SQL statements вроде `insert`, `update` или `delete` выполняются через `Exec`.
 
-`sql.Tx` представляет database transaction. Несколько операций выполняются в одном transaction context и завершаются:
+Подробнее:
 
-- `Commit()` — атомарно применить изменения;
-- `Rollback()` — отказаться от изменений.
+- [[change-data|Выполнение SQL statements, не возвращающих данные]];
+- [[querying|Запрос данных]].
 
-Подробнее: [[execute-transactions|Транзакции]].
+### Транзакции {#transactions}
 
-## Cancellation
+Через `sql.Tx` можно выполнять database operations внутри transaction. Несколько операций выполняются как единое целое и завершаются либо `commit`, атомарно применяющим все изменения, либо `rollback`, отбрасывающим их.
 
-Context-aware методы позволяют ограничивать database operation timeout/deadline и распространять cancellation из внешнего request lifecycle:
+Подробнее см. [[execute-transactions|Выполнение транзакций]].
 
-- `QueryContext`;
-- `ExecContext`;
-- `BeginTx`;
-- и другие APIs с `context.Context`.
+### Отмена запросов {#query_cancellation}
 
-Подробнее: [[cancel-operations|Отмена операций]].
+`context.Context` позволяет отменять database operation — например, если клиент закрыл соединение или операция выполняется дольше допустимого.
 
-## Managed connection pool
+Для database operations пакет `database/sql` предоставляет варианты функций, принимающие `Context`. Через `Context` можно задать timeout или deadline, а также распространить cancellation request по приложению до функции, выполняющей SQL statement, чтобы ненужные ресурсы освобождались как можно раньше.
 
-`sql.DB` — не одно физическое соединение. Это concurrency-safe handle, управляющий connection pool.
+Подробнее см. [[cancel-operations|Отмена выполняющихся операций]].
 
-Обычно application хранит один long-lived `*sql.DB` на logical database/configuration и переиспользует его из многих goroutines.
+### Управляемый connection pool {#connection_pool}
 
-Pool автоматически создаёт и возвращает connections. Для tuning доступны:
+При использовании database handle `sql.DB` приложение работает со встроенным connection pool, который создаёт и освобождает connections в соответствии с потребностями кода. `sql.DB` — основной и наиболее распространённый способ доступа к базе данных в Go. Подробнее см. [[open-handle|Открытие database handle]].
 
-- `SetMaxOpenConns`;
-- `SetMaxIdleConns`;
-- `SetConnMaxIdleTime`;
-- `SetConnMaxLifetime`.
+Пакет `database/sql` управляет pool автоматически. Для более сложных случаев параметры pool можно настроить; см. [[manage-connections#Настройка параметров connection pool|Настройка параметров connection pool]].
 
-Подробнее: [[manage-connections|Управление соединениями]].
+Когда требуется одна зарезервированная connection, `database/sql` предоставляет [`sql.Conn`](https://pkg.go.dev/database/sql#Conn). `Conn` особенно полезен в ситуациях, где transaction через `sql.Tx` — неподходящий выбор.
 
-## Dedicated connection
+Например, приложению может потребоваться:
 
-Если последовательность операций обязана выполняться на одном конкретном physical connection, можно получить `*sql.Conn` через `DB.Conn`.
+- выполнить DDL schema changes, содержащие собственную transaction semantics. Смешивать transaction functions пакета `sql` с SQL transaction statements — плохая практика, как описано в [[execute-transactions|Выполнение транзакций]];
+- выполнить query locking operations, создающие temporary tables.
 
-Это полезно для connection-local semantics, temporary objects или DB-specific behavior, которые не подходят под обычный pool. Для transactions предпочтительнее использовать `sql.Tx`.
+Подробнее см. [[manage-connections#Использование выделенных connections|Использование выделенных connections]].

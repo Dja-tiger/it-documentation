@@ -1,49 +1,68 @@
 ---
-title: "Отмена database operations"
+title: "Отмена выполняющихся операций"
 technology: "Go"
 version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/database/cancel-operations.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
 # Отмена выполняющихся операций
 
-`context.Context` позволяет сообщить глубоко вложенным operations, что результат больше не нужен и работу следует прекратить.
+Выполняющимися operations можно управлять через [`context.Context`](https://pkg.go.dev/context#Context).
 
-Это полезно для:
+`Context` — стандартное Go value, которое сообщает, была ли представляющая его общая operation отменена и перестала ли она быть нужна.
 
-- long-running database queries;
-- request timeout;
-- client disconnect;
-- propagation cancellation через service layers.
+Если передавать `context.Context` через function calls и services приложения, downstream code может досрочно прекращать работу и возвращать error, когда дальнейшая обработка больше не нужна.
 
-## Timeout
+Подробнее о `Context` см. [Go Concurrency Patterns: Context](https://go.dev/blog/context).
+
+Например, cancellation может использоваться для того, чтобы:
+
+- завершить long-running operations, включая database operations, выполнение которых занимает слишком много времени;
+- распространить cancellation request из другого слоя приложения — например, когда client закрывает connection.
+
+Многие Go APIs предоставляют methods, принимающие `Context`, что позволяет последовательно распространять cancellation по всему приложению.
+
+### Отмена database operation по timeout {#timeout_cancel}
+
+Через `Context` можно задать timeout или deadline, после которого operation будет отменена.
+
+Для создания derived Context используйте:
+
+- [`context.WithTimeout`](https://pkg.go.dev/context#WithTimeout);
+- [`context.WithDeadline`](https://pkg.go.dev/context#WithDeadline).
+
+В следующем примере создаётся `Context` с timeout, который передаётся в [`DB.QueryContext`](https://pkg.go.dev/database/sql#DB.QueryContext):
 
 ```go
 func QueryWithTimeout(ctx context.Context) {
-    queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-    defer cancel()
+	// Create a Context with a timeout.
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-    rows, err := db.QueryContext(queryCtx, "select * from album")
-    if err != nil {
-        log.Printf("query failed: %v", err)
-        return
-    }
-    defer rows.Close()
+	// Pass the timeout Context with a query.
+	rows, err := db.QueryContext(queryCtx, "select * from album")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
 
-    // handle rows
+	// Handle returned rows.
 }
 ```
 
-Derived context автоматически отменяется, когда отменён parent context.
+Когда один context derived из внешнего context, как `queryCtx` derived из `ctx` в примере, отмена outer context автоматически отменяет и derived context.
 
-Для HTTP server `http.Request.Context()` отменяется, когда request отменён или client connection закрывается. Если от него вывести query context с дополнительным 5-second timeout, DB operation остановится при первом из событий:
+Например, в HTTP server method `http.Request.Context` возвращает context, связанный с конкретным request. Этот context отменяется, если HTTP client disconnect'ится или отменяет HTTP request; последнее возможно, например, в HTTP/2.
 
-- HTTP request canceled;
-- client disconnected;
-- query timeout exceeded.
+Если передать HTTP request context в `QueryWithTimeout`, database query завершится досрочно в любом из двух случаев:
+
+1. отменён весь HTTP request;
+2. query выполняется дольше пяти секунд.
 
 > [!important]
-> Всегда вызывайте returned `cancel` function, обычно через `defer cancel()`. Это освобождает timer/context resources даже если operation завершилась раньше deadline.
+> Всегда вызывайте через `defer` функцию `cancel`, возвращённую при создании нового `Context` с timeout или deadline.
+>
+> Это освобождает resources, удерживаемые новым `Context`, когда enclosing function завершается. Вызов также отменяет `queryCtx`, но к моменту выхода из function этот context уже не должен использоваться.

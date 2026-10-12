@@ -5,77 +5,64 @@ version: "1.27.1"
 upstream_repository: "golang/website"
 upstream_path: "_content/doc/security/vuln/editor.md"
 upstream_ref: "575a6925e2d55ad160ed77f402bfaa4ec7458749"
-translation_status: "translated"
+translation_status: "reviewed"
 ---
 
-# Vulnerability Scanning в IDE
+# Vulnerability Scanning in IDEs
 
-Editors с `gopls` integration могут анализировать dependencies через Go vulnerability database.
+[[../index|Назад к Go Security]]
 
-## Два режима
+Editors, интегрированные с [Go language server](https://pkg.go.dev/golang.org/x/tools/cmd/gopls), например [VS Code с Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go), могут обнаруживать vulnerabilities в dependencies.
 
-### Imports analysis
+Существуют два mode vulnerability detection. Оба используют [Go vulnerability database](https://vuln.go.dev) и дополняют друг друга.
 
-Быстрый mode: анализируется set imported packages workspace. Findings показываются diagnostics рядом с `go.mod`.
+- **Imports-based analysis.** Editor сканирует set packages, imported workspace, и показывает findings как diagnostics в `go.mod`. Mode быстрый, но может давать false positives, если code импортирует package с vulnerable symbol, но vulnerable function не reachable. Включается setting [`"vulncheck": "Imports"`](https://github.com/golang/tools/blob/master/gopls/doc/settings.md#vulncheck-enum) в `gopls`.
+- **Govulncheck analysis.** Основан на CLI tool [`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), встроенном в `gopls`. Даёт low-noise и надёжное подтверждение того, вызывает ли code vulnerable functions. Поскольку analysis может быть expensive, он запускается вручную через code action **Run govulncheck to verify**, связанный с diagnostic imports-based analysis, либо через code lens [`"codelenses.run_govulncheck"`](https://github.com/golang/tools/blob/master/gopls/doc/settings.md#run-govulncheck) на `go.mod`.
 
-Плюс: быстро.
+Upstream page содержит demo `vscode.gif` и video для command **Go: Toggle Vulncheck**.
 
-Минус: возможен false positive, если package imported, но vulnerable function/symbol не reachable.
+Features доступны в `gopls` v0.11.0 или newer. Feedback: [go.dev/s/vsc-vulncheck-feedback](https://go.dev/s/vsc-vulncheck-feedback).
 
-`gopls` setting:
+## Editor-specific instructions
 
-```json
-{
-  "vulncheck": "Imports"
-}
-```
+### VS Code
 
-### Govulncheck analysis
+[Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go) предоставляет integration с `gopls`.
 
-`govulncheck` встроен в `gopls` и выполняет более дорогой reachability analysis. Обычно запускается вручную code action/codelens после import-based finding.
-
-Это более low-noise подтверждение: вызывает ли code vulnerable functions.
-
-Features доступны начиная с documented `gopls` v0.11.0+.
-
-## VS Code
-
-Пример settings из pinned upstream:
+Для vulnerability scanning нужны settings:
 
 ```json
-{
-  "go.diagnostic.vulncheck": "Imports",
-  "gopls": {
-    "ui.codelenses": {
-      "run_govulncheck": true
-    }
+"go.diagnostic.vulncheck": "Imports", // enable the imports-based analysis by default.
+"gopls": {
+  "ui.codelenses": {
+    "run_govulncheck": true  // "Run govulncheck" code lens on go.mod file.
   }
 }
 ```
 
-Также есть command `Go: Toggle Vulncheck`.
+Command [Go Toggle Vulncheck](https://github.com/golang/vscode-go/wiki/Commands#go-toggle-vulncheck) включает/выключает imports-based analysis для current workspace.
 
-## Vim/NeoVim + coc.nvim
+### Vim/NeoVim
 
-Initialization options language server могут включать:
+При использовании [coc.nvim](https://www.vim.org/scripts/script.php?script_id=5779) imports-based analysis включается так:
 
 ```json
 {
-  "codeLens.enable": true,
-  "languageserver": {
-    "go": {
-      "command": "gopls",
-      "initializationOptions": {
-        "vulncheck": "Imports"
-      }
+    "codeLens.enable": true,
+    "languageserver": {
+        "go": {
+            "command": "gopls",
+            "initializationOptions": {
+                "vulncheck": "Imports"
+            }
+        }
     }
-  }
 }
 ```
 
-## Privacy и caveats
+## Notes and caveats
 
-- IDE не отправляет private module source/paths в vulnerability database; analysis загружает known vulnerable-module information и сравнивает локально.
-- Workspace package set может отличаться от literal `go.mod` из-за `go.work`, `replace`, `exclude`.
-- `govulncheck` result может устареть после code/DB updates; diagnostics можно reset, также существует automatic invalidation window.
-- Pinned upstream отмечает, что IDE feature пока не показывает vulnerabilities standard library/toolchain тем же способом; UX остаётся отдельной задачей.
+- Extension не сканирует private packages и не отправляет information о private modules. Analysis выполняется локально: загружается list известных vulnerable modules из Go vulnerability database, после чего вычисляется intersection с local project.
+- Imports-based analysis использует list packages в workspace modules. Он может отличаться от literal contents `go.mod`, если используются `go.work`, module `replace` или `exclude`.
+- Result govulncheck analysis может устареть после changes code или обновления Go vulnerability database. Для manual invalidation используйте codelens **Reset go.mod diagnostics** сверху `go.mod`; иначе result автоматически invalidated через один hour.
+- Features сейчас не report'ят vulnerabilities standard library или toolchain. UX для таких findings и рекомендации users всё ещё исследуются.

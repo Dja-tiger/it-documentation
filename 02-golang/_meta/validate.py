@@ -131,8 +131,8 @@ def resolve_wikilink_target(raw_target: str) -> Path | None:
         return None
 
     target_path = GO_ROOT / target
-    if target_path.suffix == "":
-        target_path = target_path.with_suffix(".md")
+    if target_path.suffix.lower() != ".md":
+        target_path = Path(f"{target_path}.md")
 
     return target_path
 

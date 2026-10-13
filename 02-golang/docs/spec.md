@@ -8,91 +8,130 @@ upstream_ref: "go1.27.1"
 translation_status: "translated"
 ---
 
-# Спецификация языка Go 1.27
+# Спецификация языка программирования Go
 
-Эта страница следует нормативной спецификации из `golang/go@go1.27.1`. Если tutorial, FAQ или старый guide расходится с этой страницей, приоритет имеет текущая language specification.
+Версия языка go1.27 (26 мая 2026 г.)
 
+<a id="Introduction"></a>
 ## Введение
 
-Go — strongly typed, garbage-collected язык с explicit support concurrency. Programs состоят из packages, чьи свойства позволяют эффективно управлять dependencies.
+Это справочное руководство по языку программирования Go. Дополнительную информацию и другие документы см. на [go.dev](https://go.dev/).
 
-Syntax компактна и регулярна; implementations должны соблюдать semantics, определённые specification, включая compile-time constraints и runtime panics.
+Go — язык общего назначения, разработанный с учётом системного программирования. Он строго типизирован, использует сборку мусора и имеет явную поддержку конкурентного программирования. Программы состоят из пакетов, свойства которых позволяют эффективно управлять зависимостями.
 
+Синтаксис компактен и прост для анализа, что облегчает работу автоматических инструментов, например интегрированных сред разработки.
+
+<a id="Notation"></a>
 ## Нотация
 
-Grammar записывается в EBNF:
+Синтаксис задаётся с помощью варианта расширенной формы Бэкуса — Наура (EBNF):
 
 ```text
 Syntax      = { Production } .
 Production  = production_name "=" [ Expression ] "." .
-Expression  = Alternative { "|" Alternative } .
-Alternative = Term { Term } .
-Term        = production_name | token [ "…" token ] | Group | Option | Repetition .
+Expression  = Term { "|" Term } .
+Term        = Factor { Factor } .
+Factor      = production_name | token [ "…" token ] | Group | Option | Repetition .
 Group       = "(" Expression ")" .
 Option      = "[" Expression "]" .
 Repetition  = "{" Expression "}" .
 ```
 
-Lower-case production names обычно обозначают lexical tokens; CamelCase — syntactic non-terminals.
-
-`a … b` обозначает range lexical alternatives от `a` до `b`.
-
-## Source code representation
-
-Source — Unicode text, encoded UTF-8. Implementation может ограничивать BOM только началом file и может игнорировать UTF-8 BOM в начале. NUL character недопустим.
-
-Implementation может ограничивать размер source file, literal и numeric constant, но limit должен быть documented.
-
-### Characters
-
-Термины:
+Правила состоят из выражений, построенных из терминов и следующих операторов, перечисленных в порядке возрастания приоритета:
 
 ```text
-newline        = U+000A .
-unicode_char   = arbitrary Unicode code point except newline .
-unicode_letter = Unicode class Letter or '_' .
-unicode_digit  = Unicode class Nd .
+|   alternation
+()  grouping
+[]  option (0 or 1 times)
+{}  repetition (0 to n times)
 ```
 
-Underscore `_` считается letter для identifiers.
+Имена правил, записанные строчными буквами, обозначают лексические токены. Нетерминальные символы записываются в CamelCase. Лексические токены заключаются в двойные кавычки `""` или обратные кавычки ````.
 
-## Lexical elements
+Запись `a … b` обозначает множество символов от `a` до `b` включительно. Горизонтальное многоточие `…` также используется для неформального обозначения различных перечислений или фрагментов кода. Символ `…`, в отличие от трёх отдельных символов `...`, не является токеном языка Go.
 
-### Comments
+Ссылка вида `[Go 1.xx]` указывает, что описанная возможность языка или её аспект были изменены либо добавлены в Go 1.xx и требуют как минимум этой версии языка.
 
-Поддерживаются:
+<a id="Source_code_representation"></a>
+## Представление исходного кода
 
-```go
-// line comment
+Исходный код — текст Unicode, закодированный в UTF-8. Текст не канонизируется, поэтому одна кодовая точка с диакритическим знаком отличается от того же символа, представленного комбинацией кодовых точек. В этой спецификации термин «символ» без дополнительного уточнения обозначает кодовую точку Unicode в исходном тексте.
 
-/* general
-   comment */
+Каждая кодовая точка различна; например, прописные и строчные буквы являются разными символами.
+
+Ограничение реализации: для совместимости с другими инструментами компилятор может запрещать символ NUL (U+0000) в исходном тексте.
+
+Ограничение реализации: компилятор может игнорировать метку порядка байтов UTF-8 (U+FEFF), если она является первой кодовой точкой Unicode в исходном тексте. В любом другом месте исходного кода BOM может быть запрещён.
+
+<a id="Characters"></a>
+### Символы
+
+Следующие термины обозначают конкретные категории символов Unicode:
+
+```text
+newline        = /* Unicode code point U+000A */ .
+unicode_char   = /* an arbitrary Unicode code point except newline */ .
+unicode_letter = /* a Unicode code point categorized as "Letter" */ .
+unicode_digit  = /* a Unicode code point categorized as "Number, decimal digit" */ .
 ```
 
-General comment не может содержать nested `/*` и заканчивается первым `*/`.
+Стандарт Unicode определяет категории символов. Go рассматривает символы категорий Lu, Ll, Lt, Lm и Lo как буквы Unicode, а символы категории Nd — как цифры Unicode.
 
-Comment не может начинаться внутри rune/string literal.
+<a id="Letters_and_digits"></a>
+### Буквы и цифры
 
-### Tokens и semicolons
+Символ подчёркивания `_` (U+005F) считается строчной буквой.
 
-Tokens делятся на identifiers, keywords, operators/punctuation и literals.
+```text
+letter        = unicode_letter | "_" .
+decimal_digit = "0" … "9" .
+binary_digit  = "0" | "1" .
+octal_digit   = "0" … "7" .
+hex_digit     = "0" … "9" | "A" … "F" | "a" … "f" .
+```
 
-Semicolon автоматически вставляется после последнего token строки, если это:
+<a id="Lexical_elements"></a>
+## Лексические элементы
 
-- identifier;
-- integer/floating/imaginary/rune/string literal;
-- `break`, `continue`, `fallthrough`, `return`;
-- `++`, `--`, `)`, `]`, `}`.
+<a id="Comments"></a>
+### Комментарии
 
-Semicolon также можно опустить перед `)` или `}`.
+Комментарии служат документацией программы. Есть две формы:
 
-### Identifiers
+1. Строчные комментарии начинаются последовательностью `//` и заканчиваются в конце строки.
+2. Общие комментарии начинаются последовательностью `/*` и заканчиваются первой следующей последовательностью `*/`.
+
+Комментарий не может начинаться внутри рунного или строкового литерала либо внутри другого комментария. Общий комментарий, не содержащий переводов строки, действует как пробел. Любой другой комментарий действует как перевод строки.
+
+<a id="Tokens"></a>
+### Токены
+
+Токены образуют словарь языка Go. Есть четыре класса: идентификаторы, ключевые слова, операторы и знаки пунктуации, литералы. Пробельные символы — пробел (U+0020), горизонтальная табуляция (U+0009), возврат каретки (U+000D) и перевод строки (U+000A) — игнорируются, кроме случаев, когда они разделяют токены, которые иначе слились бы в один. Кроме того, перевод строки или конец файла может инициировать вставку точки с запятой.
+
+При разбиении входного текста на токены следующим токеном является самая длинная последовательность символов, образующая допустимый токен.
+
+<a id="Semicolons"></a>
+### Точки с запятой
+
+Формальный синтаксис использует `;` как терминатор в ряде конструкций. Большинство точек с запятой в программе Go можно опускать по двум правилам:
+
+1. При разбиении входного текста на токены точка с запятой автоматически вставляется сразу после последнего токена строки, если этим токеном является:
+   - идентификатор;
+   - целочисленный, литерал с плавающей точкой, мнимый, рунный или строковый литерал;
+   - одно из ключевых слов `break`, `continue`, `fallthrough`, `return`;
+   - один из операторов и знаков пунктуации `++`, `--`, `)`, `]`, `}`.
+2. Чтобы составные конструкции помещались в одну строку, точку с запятой можно опустить перед закрывающей `)` или `}`.
+
+В примерах кода спецификация опускает точки с запятой в соответствии с этими правилами.
+
+<a id="Identifiers"></a>
+### Идентификаторы
+
+Идентификаторы именуют программные сущности, такие как переменные и типы. Идентификатор — последовательность одной или более букв и цифр. Первый символ должен быть буквой.
 
 ```text
 identifier = letter { letter | unicode_digit } .
 ```
-
-Примеры:
 
 ```text
 a
@@ -101,36 +140,51 @@ ThisVariableIsExported
 αβ
 ```
 
-Keywords нельзя использовать как identifiers.
+<a id="Keywords"></a>
+### Ключевые слова
 
-### Keywords
-
-```text
-break       default      func         interface    select
-case        defer        go           map          struct
-chan        else         goto         package      switch
-const       fallthrough  if           range        type
-continue    for          import       return       var
-```
-
-### Operators/punctuation
+Следующие ключевые слова зарезервированы и не могут использоваться как идентификаторы:
 
 ```text
-+  &   +=  &=  &&  ==  !=  (  )
--  |   -=  |=  ||  <   <=  [  ]
-*  ^   *=  ^=  <-  >   >=  {  }
-/  <<  /=  <<= ++  =   :=  ,  ;
-%  >>  %=  >>= --  !   ... .  :
-&^
-&^=
-~
+break        default      func         interface    select
+case         defer        go           map          struct
+chan         else         goto         package      switch
+const        fallthrough  if           range        type
+continue     for          import       return       var
 ```
 
-`~` используется в type terms constraints.
+<a id="Operators_and_punctuation"></a>
+### Операторы и знаки пунктуации
 
-## Integer literals
+Следующие последовательности символов представляют операторы, включая операторы присваивания, и знаки пунктуации:
 
-Decimal, binary, octal и hexadecimal forms:
+```text
++    &     +=    &=     &&    ==    !=    (    )
+-    |     -=    |=     ||    <     <=    [    ]
+*    ^     *=    ^=     <-    >     >=    {    }
+/    <<    /=    <<=    ++    =     :=    ,    ;
+%    >>    %=    >>=    --    !     ...   .    :
+     &^          &^=          ~
+```
+
+<a id="Integer_literals"></a>
+### Целочисленные литералы
+
+Целочисленный литерал — последовательность цифр, представляющая целочисленную константу. Необязательный префикс задаёт недесятичное основание: `0b` или `0B` для двоичного, `0`, `0o` или `0O` для восьмеричного, `0x` или `0X` для шестнадцатеричного. Одиночный `0` считается десятичным нулём. В шестнадцатеричных литералах буквы `a`–`f` и `A`–`F` обозначают значения 10–15.
+
+Для удобочитаемости `_` может находиться после префикса основания или между последовательными цифрами; подчёркивания не меняют значение литерала.
+
+```text
+int_lit        = decimal_lit | binary_lit | octal_lit | hex_lit .
+decimal_lit    = "0" | ( "1" … "9" ) [ [ "_" ] decimal_digits ] .
+binary_lit     = "0" ( "b" | "B" ) [ "_" ] binary_digits .
+octal_lit      = "0" [ "o" | "O" ] [ "_" ] octal_digits .
+hex_lit        = "0" ( "x" | "X" ) [ "_" ] hex_digits .
+decimal_digits = decimal_digit { [ "_" ] decimal_digit } .
+binary_digits  = binary_digit { [ "_" ] binary_digit } .
+octal_digits   = octal_digit { [ "_" ] octal_digit } .
+hex_digits     = hex_digit { [ "_" ] hex_digit } .
+```
 
 ```go
 42
@@ -141,15 +195,36 @@ Decimal, binary, octal и hexadecimal forms:
 0O600
 0xBadFace
 0xBad_Face
-0b0110
-0B_0110
+0x_67_7a_2f_cc_40_c6
+170141183460469231731687303715884105727
+170_141183_460469_231731_687303_715884_105727
+_42         // an identifier, not an integer literal
+42_         // invalid: _ must separate successive digits
+4__2        // invalid: only one _ at a time
+0_xBadFace  // invalid: _ must separate successive digits
 ```
 
-Underscore может разделять successive digits и улучшать readability, но не может стоять произвольно.
+<a id="Floating-point_literals"></a>
+### Литералы с плавающей точкой
 
-## Floating-point literals
+Литерал с плавающей точкой — десятичное или шестнадцатеричное представление константы с плавающей точкой.
 
-Decimal и hexadecimal floating literals поддерживают exponent notation.
+Десятичный литерал состоит из целой части, десятичной точки, дробной части и показателя степени `e` или `E`; целая или дробная часть могут отсутствовать, а десятичная точка или показатель степени в допустимых формах могут быть опущены. Показатель `exp` масштабирует мантиссу на `10^exp`.
+
+Шестнадцатеричный литерал начинается с `0x` или `0X`, имеет шестнадцатеричную мантиссу и обязательный двоичный показатель `p` или `P`; `exp` масштабирует мантиссу на `2^exp`.
+
+```text
+float_lit         = decimal_float_lit | hex_float_lit .
+decimal_float_lit = decimal_digits "." [ decimal_digits ] [ decimal_exponent ] |
+                    decimal_digits decimal_exponent |
+                    "." decimal_digits [ decimal_exponent ] .
+decimal_exponent  = ( "e" | "E" ) [ "+" | "-" ] decimal_digits .
+hex_float_lit     = "0" ( "x" | "X" ) hex_mantissa hex_exponent .
+hex_mantissa      = [ "_" ] hex_digits "." [ hex_digits ] |
+                    [ "_" ] hex_digits |
+                    "." hex_digits .
+hex_exponent      = ( "p" | "P" ) [ "+" | "-" ] decimal_digits .
+```
 
 ```go
 0.
@@ -161,33 +236,64 @@ Decimal и hexadecimal floating literals поддерживают exponent notat
 1E6
 .25
 .12345E+5
-1_5.         // 15.0
-0.15e+0_2    // 15.0
-
-0x1p-2       // 0.25
-0x2.p10      // 2048.0
-0x1.Fp+0     // 1.9375
+1_5.         // == 15.0
+0.15e+0_2    // == 15.0
+0x1p-2       // == 0.25
+0x2.p10      // == 2048.0
+0x1.Fp+0     // == 1.9375
+0X.8p-0      // == 0.5
+0X_1FFFP-16  // == 0.1249847412109375
+0x15e-2      // == 0x15e - 2 (integer subtraction)
+0x.p1        // invalid: mantissa has no digits
+1p-2         // invalid: p exponent requires hexadecimal mantissa
+0x1.5e-2     // invalid: hexadecimal mantissa requires p exponent
+1_.5         // invalid: _ must separate successive digits
+1._5         // invalid: _ must separate successive digits
+1.5_e1       // invalid: _ must separate successive digits
+1.5e_1       // invalid: _ must separate successive digits
+1.5e1_       // invalid: _ must separate successive digits
 ```
 
-Hexadecimal mantissa требует binary exponent `p`/`P`.
+<a id="Imaginary_literals"></a>
+### Мнимые литералы
 
-## Imaginary literals
+Мнимый литерал представляет мнимую часть комплексной константы. Он состоит из целочисленного или литерала с плавающей точкой и строчной буквы `i`. Значение равно соответствующему числовому литералу, умноженному на мнимую единицу `i`.
 
-Imaginary literal = numeric literal + `i`:
+```text
+imaginary_lit = ( decimal_digits | int_lit | float_lit ) "i" .
+```
 
 ```go
 0i
-011i
+0123i         // == 123i for backward-compatibility
+0o123i        // == 0o123 * 1i == 83i
+0xabci        // == 0xabc * 1i == 2748i
 0.i
 2.71828i
 1.e+0i
 6.67428e-11i
-0x1p-2i
+1E6i
+.25i
+.12345E+5i
+0x1p-2i       // == 0x1p-2 * 1i == 0.25i
 ```
 
-## Rune literals
+<a id="Rune_literals"></a>
+### Рунные литералы
 
-Single-quoted rune literal представляет integer Unicode code point либо byte escape.
+Рунный литерал представляет константу rune — целое число, идентифицирующее кодовую точку Unicode. Он выражается одним или несколькими символами в одинарных кавычках. Внутри кавычек не допускаются перевод строки и неэкранированная одинарная кавычка.
+
+```text
+rune_lit         = "'" ( unicode_value | byte_value ) "'" .
+unicode_value    = unicode_char | little_u_value | big_u_value | escaped_char .
+byte_value       = octal_byte_value | hex_byte_value .
+octal_byte_value = `\` octal_digit octal_digit octal_digit .
+hex_byte_value   = `\` "x" hex_digit hex_digit .
+little_u_value   = `\` "u" hex_digit hex_digit hex_digit hex_digit .
+big_u_value      = `\` "U" hex_digit hex_digit hex_digit hex_digit
+                           hex_digit hex_digit hex_digit hex_digit .
+escaped_char     = `\` ( "a" | "b" | "f" | "n" | "r" | "t" | "v" | `\` | "'" | `"` ) .
+```
 
 ```go
 'a'
@@ -195,186 +301,187 @@ Single-quoted rune literal представляет integer Unicode code point �
 '本'
 '\t'
 '\000'
+'\007'
+'\377'
 '\x07'
+'\xff'
 '\u12e4'
 '\U00101234'
+'aa'         // illegal: too many characters
+'\xa'        // illegal: too few hexadecimal digits
+'\0'         // illegal: too few octal digits
+'\uDFFF'     // illegal: surrogate half
+'\U00110000' // illegal: invalid Unicode code point
 ```
 
-Недопустимы multiple runes, newline, unmatched quote, invalid Unicode scalar/escape.
+<a id="String_literals"></a>
+### Строковые литералы
 
-## String literals
+Строковый литерал представляет строковую константу, полученную конкатенацией последовательности символов. Есть две формы: raw string literals и interpreted string literals.
 
-### Raw string
+Raw string literals заключены в обратные кавычки. Внутри них любой символ, кроме обратной кавычки, может появляться без экранирования; обратная косая черта не имеет специального значения. Возвраты каретки внутри raw string literal удаляются из значения.
 
-Backticks:
+Interpreted string literals заключены в двойные кавычки и используют те же escape-последовательности, что рунные литералы, с соответствующими правилами для `\"` и `\\`.
 
-```go
-`abc`
-`multi
-line`
+```text
+string_lit             = raw_string_lit | interpreted_string_lit .
+raw_string_lit         = "`" { unicode_char | newline } "`" .
+interpreted_string_lit = `"` { unicode_value | byte_value } `"` .
 ```
 
-Backslashes не имеют special meaning. Carriage returns внутри raw literal удаляются из resulting value.
-
-### Interpreted string
-
-Double quotes:
-
 ```go
+`abc`                // same as "abc"
+`\n
+\n`                  // same as "\\n\n\\n"
 "Hello, world!\n"
 "日本語"
 "\u65e5本\U00008a9e"
+"\xff\u00FF"
 ```
 
-Используются те же escapes, что rune literals, плюс escaped quote/backslash.
+<a id="Constants"></a>
+## Константы
 
-String является immutable sequence bytes и может содержать arbitrary bytes, не обязательно valid UTF-8.
+Есть булевы, рунные, целочисленные, с плавающей точкой, комплексные и строковые константы. Рунные, целочисленные, с плавающей точкой и комплексные константы в совокупности называются числовыми.
 
-# Constants
+Значение константы представляется рунным, целочисленным, с плавающей точкой, мнимым либо строковым литералом, идентификатором константы, константным выражением, преобразованием с результатом-константой либо результатом некоторых встроенных функций. Предопределённые `true` и `false` — нетипизированные булевы константы, а `iota` обозначает целочисленную константу.
 
-Constants могут быть boolean, rune, integer, floating-point, complex или string.
+В общем случае комплексные константы являются формой константных выражений.
 
-Они создаются literals, constant expressions, `const` declarations и некоторыми built-ins.
+Числовые константы представляют точные значения произвольной точности и не переполняются. Следовательно, нет констант, обозначающих отрицательный ноль, бесконечность или NaN IEEE 754.
 
-Predeclared constants:
+Константа может иметь тип или не иметь типа. Литеральная константа, `true`, `false`, `iota` и некоторые константные выражения являются нетипизированными.
 
-```text
-true false iota
+Константе может быть явно задан тип объявлением или преобразованием либо неявно — при использовании в объявлении переменной, присваивании или как операнда выражения. Ошибка, если значение константы нельзя представить значением соответствующего типа.
+
+Нетипизированная константа имеет тип по умолчанию: `bool`, `rune`, `int`, `float64`, `complex128` или `string` соответственно её виду.
+
+Ограничение реализации: хотя числовые константы имеют произвольную точность, компилятор может использовать внутреннее представление ограниченной точности. Реализация обязана представлять целочисленные константы как минимум с 256 битами и константы с плавающей точкой как минимум с 256-битной мантиссой и знаковым двоичным показателем как минимум 16 бит; при невозможности точного представления должна округлять к ближайшей представимой константе.
+
+<a id="Variables"></a>
+## Переменные
+
+Переменная — место хранения значения. Набор допустимых значений определяется типом переменной.
+
+Объявление переменной, параметры и результаты функций или сигнатура функции резервируют хранилище для именованной переменной. Вызов встроенной функции `new` или взятие адреса составного литерала резервирует хранилище во время выполнения. Такая анонимная переменная обозначается через косвенное обращение по указателю.
+
+Структурированные переменные массивов, срезов и структур имеют элементы и поля, к которым можно обращаться отдельно. Каждый такой элемент действует как переменная.
+
+Статический тип переменной — тип, указанный в её объявлении, тип, переданный `new`, либо тип элемента структурированной переменной. Переменные интерфейсного типа также имеют отдельный динамический тип — тип конкретного значения, присвоенного переменной во время выполнения, который может меняться, но всегда должен реализовывать статический тип интерфейса.
+
+```go
+var x interface{}  // x is nil and has static type interface{}
+var v *T           // v has value nil, static type *T
+x = 42             // x has value 42 and dynamic type int
+x = v              // x has value (*T)(nil) and dynamic type *T
 ```
 
-Untyped constants имеют **kind**, но ещё не concrete machine type. Это позволяет arbitrary precision compile-time arithmetic в пределах implementation requirements.
+Значение переменной извлекается обращением к переменной в выражении; это последнее присвоенное ей значение. Если переменной ещё ничего не присваивалось, её значение — нулевое значение её типа.
 
-Default types:
+<a id="Types"></a>
+## Типы
 
-| Constant kind | Default type |
-|---|---|
-| boolean | `bool` |
-| rune | `rune` (`int32`) |
-| integer | `int` |
-| floating-point | `float64` |
-| complex | `complex128` |
-| string | `string` |
-
-### Representability
-
-Constant `x` representable type `T`, если value может быть represented соответствующим value `T` без нарушения rules.
-
-Для type parameter representability должна выполняться для каждого type из type set.
-
-# Variables
-
-Variable — storage location с associated type/value. Zero value используется при отсутствии explicit initialization.
-
-Variable создаётся:
-
-- declarations;
-- function parameters/results;
-- `new`;
-- composite literals/addressing;
-- short declarations;
-- implicit iteration variables и другими language constructs.
-
-Zero values:
-
-- boolean → `false`;
-- numeric → `0`;
-- string → `""`;
-- pointer/function/interface/slice/channel/map → `nil`;
-- array/struct → recursively zeroed elements/fields.
-
-# Types
-
-Type определяет set values и supported operations.
-
-Type может быть denoted type name либо type literal.
+Тип определяет множество значений и операции, характерные для этих значений. Тип может быть задан именем типа, если оно есть, или литералом типа, который строит тип из существующих типов.
 
 ```text
 Type      = TypeName [ TypeArgs ] | TypeLit | "(" Type ")" .
 TypeName  = identifier | QualifiedIdent .
-TypeLit   = ArrayType | StructType | PointerType | FunctionType |
-            InterfaceType | SliceType | MapType | ChannelType .
+TypeArgs  = "[" TypeList [ "," ] "]" .
+TypeList  = Type { "," Type } .
+TypeLit   = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
+            SliceType | MapType | ChannelType .
 ```
 
-## Boolean types
+<a id="Boolean_types"></a>
+### Булевы типы
 
-Predeclared `bool`; values `true`/`false`.
+Булев тип представляет множество булевых истинностных значений `true` и `false`. Предопределённый булев тип — `bool`; это определённый тип.
 
-## Numeric types
+<a id="Numeric_types"></a>
+### Числовые типы
 
-### Integers
+Целочисленный, с плавающей точкой или комплексный тип представляет соответствующие множества числовых значений. Они совместно называются числовыми типами. Предопределённые архитектурно-независимые числовые типы:
 
 ```text
-uint8       0..255
-uint16      0..65535
-uint32      0..4294967295
-uint64      0..2^64-1
-int8        -128..127
-int16       -32768..32767
-int32       -2^31..2^31-1
-int64       -2^63..2^63-1
+uint8       the set of all unsigned  8-bit integers (0 to 255)
+uint16      the set of all unsigned 16-bit integers (0 to 65535)
+uint32      the set of all unsigned 32-bit integers (0 to 4294967295)
+uint64      the set of all unsigned 64-bit integers (0 to 18446744073709551615)
+
+int8        the set of all signed  8-bit integers (-128 to 127)
+int16       the set of all signed 16-bit integers (-32768 to 32767)
+int32       the set of all signed 32-bit integers (-2147483648 to 2147483647)
+int64       the set of all signed 64-bit integers (-9223372036854775808 to 9223372036854775807)
+
+float32     the set of all IEEE 754 32-bit floating-point numbers
+float64     the set of all IEEE 754 64-bit floating-point numbers
+
+complex64   the set of all complex numbers with float32 real and imaginary parts
+complex128  the set of all complex numbers with float64 real and imaginary parts
+
+byte        alias for uint8
+rune        alias for int32
 ```
 
-Aliases:
+Есть также набор предопределённых целочисленных типов с размером, зависящим от реализации:
 
 ```text
-byte = uint8
-rune = int32
+uint     either 32 or 64 bits
+int      same size as uint
+uintptr  an unsigned integer large enough to store the uninterpreted bits of a pointer value
 ```
 
-`uint`, `int`, `uintptr` implementation-specific size, но `uint`/`int` одинакового size, минимум 32 bits.
+Чтобы избежать проблем переносимости, все числовые типы, кроме `byte` и `rune`, являются определёнными и потому различными типами. При смешивании числовых типов в выражении или присваивании требуются явные преобразования.
 
-### Floating point
+<a id="String_types"></a>
+### Строковые типы
+
+Строковый тип представляет множество строковых значений. Строковое значение — возможно пустая последовательность байтов. Число байтов называется длиной строки и никогда не бывает отрицательным. Строки неизменяемы: после создания содержимое строки изменить нельзя. Предопределённый строковый тип — `string`; это определённый тип.
+
+Длину строки `s` можно узнать встроенной функцией `len`. Если строка — константа, её длина также является константой. К байтам строки можно обращаться целочисленными индексами от 0 до `len(s)-1`. Взять адрес такого элемента нельзя; если `s[i]` — i-й байт строки, `&s[i]` недопустимо.
+
+<a id="Array_types"></a>
+### Массивы
+
+Массив — нумерованная последовательность элементов одного типа, называемого типом элемента. Число элементов называется длиной массива и никогда не бывает отрицательным.
 
 ```text
-float32
-float64
+ArrayType   = "[" ArrayLength "]" ElementType .
+ArrayLength = Expression .
+ElementType = Type .
 ```
 
-IEEE 754 binary formats.
-
-### Complex
-
-```text
-complex64  // float32 real+imag
-complex128 // float64 real+imag
-```
-
-## String type
-
-`string` — immutable byte sequence. Length = bytes. Index returns byte, not rune. Address of string byte cannot be taken.
-
-Range по string декодирует UTF-8 и выдаёт byte index + rune; invalid encoding yields `U+FFFD` width 1.
-
-## Array types
-
-```text
-ArrayType = "[" ArrayLength "]" ElementType .
-```
-
-Length — part of type and non-negative constant representable `int`.
+Длина является частью типа массива и должна быть неотрицательной константой, представимой значением типа `int`. Длину массива `a` можно узнать встроенной функцией `len`. Элементы индексируются от 0 до `len(a)-1`.
 
 ```go
 [32]byte
-[2*N]struct{ x, y int32 }
+[2*N] struct { x, y int32 }
+[1000]*float64
+[3][5]int
+[2][2][2]float64
 ```
 
-Arrays are values: assignment copies elements.
+<a id="Slice_types"></a>
+### Срезы
 
-## Slice types
+Срез — дескриптор непрерывного сегмента базового массива и предоставляет доступ к нумерованной последовательности элементов этого массива. Тип среза обозначает множество всех срезов массивов его типа элемента. Число элементов называется длиной среза и никогда не бывает отрицательным. Значение неинициализированного среза равно `nil`.
 
 ```text
 SliceType = "[" "]" ElementType .
 ```
 
-Slice — descriptor contiguous segment underlying array. Zero value `nil`; length/capacity dynamic.
+Длину среза `s` можно узнать `len`; элементы индексируются от 0 до `len(s)-1`. Элемент среза данного индекса может находиться в том же базовом массиве, что элемент другого среза. Срез после создания всегда связан с базовым массивом, поэтому несколько срезов могут совместно использовать одно хранилище; массивы, напротив, представляют собственное хранилище.
+
+Срез можно создать встроенной функцией `make`, которая всегда создаёт новый скрытый массив, или из массива/среза выражением среза. Ёмкость — число элементов, для которых в базовом массиве выделено место, начиная с первого элемента среза; `cap(s)` возвращает ёмкость.
 
 ```go
 make([]T, length, capacity)
 ```
 
-Slices may share underlying array.
+<a id="Struct_types"></a>
+### Структуры
 
-## Struct types
+Структура — последовательность именованных элементов, называемых полями, каждое из которых имеет имя и тип. Имена полей могут задаваться явно или неявно через встроенные поля. В структуре имена непустых полей должны быть уникальны.
 
 ```text
 StructType    = "struct" "{" { FieldDecl ";" } "}" .
@@ -383,1164 +490,1625 @@ EmbeddedField = [ "*" ] TypeName [ TypeArgs ] .
 Tag           = string_lit .
 ```
 
-Field names unique среди non-blank direct fields. Export status field определяется capitalization name.
+```go
+// An empty struct.
+struct {}
 
-Embedded field может promote fields/methods.
+// A struct with 6 fields.
+struct {
+	x, y int
+	u float32
+	_ float32  // padding
+	A *[]int
+	F func()
+}
+```
 
-Struct tags участвуют в reflection/package protocols, но игнорируются для некоторых type identity/conversion rules.
+Поле, объявленное с типом, но без явного имени, называется встроенным. Встроенное поле должно быть задано именем типа `T` или указателем на неинтерфейсный тип `*T`; `T` не может быть указателем или параметром типа. Неквалифицированное имя типа выступает именем поля.
 
-### Promoted methods
+```go
+// A struct with four embedded fields of types T1, *T2, P.T3 and *P.T4.
+struct {
+	T1        // field name is T1
+	*T2       // field name is T2
+	P.T3      // field name is T3
+	*P.T4     // field name is T4
+	x, y int  // field names are x and y
+}
+```
 
-Если `S` contains embedded `T`, method sets `S`/`*S` получают promoted methods according to receiver rules. Если embedded `*T`, соответствующие methods входят в method sets в соответствии со spec.
+Поле или метод `f` встроенного поля структуры `x` называется продвинутым, если `x.f` является допустимым селектором, обозначающим это поле или метод. Продвинутые поля действуют как обычные поля структуры, кроме того, что их нельзя использовать как имена полей в традиционной форме составного литерала; начиная с Go 1.27 ключом составного литерала структуры может быть допустимый селектор поля при соблюдении правил составных литералов.
 
-## Pointer types
+Для структуры `S` и определённого типа `T` продвинутые методы включаются в наборы методов следующим образом:
+
+- если `S` содержит встроенное поле `T`, наборы методов `S` и `*S` включают продвинутые методы с получателем `T`; набор методов `*S` также включает продвинутые методы с получателем `*T`;
+- если `S` содержит встроенное поле `*T`, наборы методов `S` и `*S` включают продвинутые методы с получателем `T` или `*T`.
+
+Объявление поля может сопровождаться необязательным строковым тегом. Теги доступны через reflection, но в остальных отношениях игнорируются.
+
+<a id="Pointer_types"></a>
+### Указатели
+
+Указательный тип обозначает множество всех указателей на переменные данного базового типа. Значение неинициализированного указателя равно `nil`.
 
 ```text
 PointerType = "*" BaseType .
+BaseType    = Type .
 ```
-
-`*T` points to variable type `T`; zero value `nil`.
 
 ```go
-var p *Point
+*Point
+*[4]int
 ```
 
-## Function types
+<a id="Function_types"></a>
+### Функции
+
+Функциональный тип обозначает множество всех функций с одинаковыми типами параметров и результатов. Значение неинициализированной переменной функционального типа равно `nil`.
 
 ```text
-FunctionType = "func" Signature .
-Signature    = Parameters [ Result ] .
-Result       = Parameters | Type .
+FunctionType   = "func" Signature .
+Signature      = Parameters [ Result ] .
+Result         = Parameters | Type .
+Parameters     = "(" [ ParameterList [ "," ] ] ")" .
+ParameterList  = ParameterDecl { "," ParameterDecl } .
+ParameterDecl  = [ IdentifierList ] [ "..." ] Type .
 ```
 
-Function types identical при identical parameter/result types, одинаковой variadic property; names параметров/results не влияют.
+В списке параметров или результатов имена должны быть либо у всех элементов, либо ни у одного. Если присутствуют, каждое имя обозначает переменную указанного типа и все непустые имена в сигнатуре должны быть уникальны. Пустой список параметров или результатов эквивалентен отсутствию списка.
 
-Variadic final parameter:
+Последний входной параметр сигнатуры может иметь тип с префиксом `...`; функция с таким параметром называется вариадической. Внутри функции тип параметра эквивалентен `[]T`.
 
 ```go
+func()
+func(x int) int
+func(a, _ int, z float32) bool
+func(a, b int, z float32) (bool)
 func(prefix string, values ...int)
+func(a, b int, z float64, opt ...interface{}) (success bool)
+func(int, int, float64) (float64, *[]int)
+func(n int) func(p *T)
 ```
 
-inside function `values` имеет `[]int`.
+<a id="Interface_types"></a>
+### Интерфейсы
 
-## Interface types
+Интерфейсный тип определяет множество типов. Переменная интерфейсного типа может хранить значение любого типа из множества типов интерфейса. Такой тип называется реализующим интерфейс. Значение неинициализированной интерфейсной переменной равно `nil`.
 
-Interface определяет **type set**.
+```text
+InterfaceType  = "interface" "{" { InterfaceElem ";" } "}" .
+InterfaceElem  = MethodElem | TypeElem .
+MethodElem     = MethodName Signature .
+MethodName     = identifier .
+TypeElem       = TypeTerm { "|" TypeTerm } .
+TypeTerm       = Type | UnderlyingType .
+UnderlyingType = "~" Type .
+```
 
-Value interface может хранить concrete value type, который implements interface.
+<a id="Basic_interfaces"></a>
+#### Базовые интерфейсы
 
-### Basic interfaces
+В простейшей форме интерфейс задаёт, возможно, пустой список методов. Множество типов такого интерфейса состоит из типов, реализующих все эти методы, а соответствующий набор методов состоит ровно из методов, указанных интерфейсом. Интерфейсы, множество типов которых можно полностью определить списком методов, называются базовыми.
 
-Только method elements/embedded basic interfaces:
+```go
+// A simple File interface.
+interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+	Close() error
+}
+```
+
+Имя каждого явно указанного метода должно быть уникальным и не должно быть пустым идентификатором.
+
+Методы, объявленные в интерфейсе, не могут объявлять собственные параметры типов. Однако они могут использовать параметры типов, объявленные самим интерфейсом.
+
+```go
+interface {
+	String() string
+	String() string  // illegal: String not unique
+	_(x int)         // illegal: method must have non-blank name
+}
+```
+
+Любой тип, входящий во множество типов интерфейса, реализует этот интерфейс. Один тип может реализовывать несколько интерфейсов. Все типы реализуют пустой интерфейс `interface{}`; предопределённый тип `any` является его псевдонимом.
+
+<a id="Embedded_interfaces"></a>
+#### Встроенные интерфейсы
+
+Интерфейс `T` может использовать имя интерфейсного типа `E` как элемент интерфейса. Это называется встраиванием `E` в `T`. Множество типов `T` является пересечением множеств типов, определённых явно объявленными методами `T`, и множеств типов встроенных интерфейсов.
 
 ```go
 type Reader interface {
-    Read(p []byte) (n int, err error)
+	Read(p []byte) (n int, err error)
+	Close() error
 }
-```
 
-Type `T` implements interface, если method set `T` включает required methods (с rules type sets для general interfaces).
+type Writer interface {
+	Write(p []byte) (n int, err error)
+	Close() error
+}
 
-### Embedded interfaces
-
-```go
+// ReadWriter's methods are Read, Write, and Close.
 type ReadWriter interface {
-    Reader
-    Writer
+	Reader  // includes methods of Reader in ReadWriter's method set
+	Writer  // includes methods of Writer in ReadWriter's method set
 }
 ```
 
-Type set — intersection constraints.
+При встраивании одинаковые по имени методы должны иметь идентичные сигнатуры.
 
-### General interfaces / type elements
+<a id="General_interfaces"></a>
+#### Общие интерфейсы
 
-Interfaces, используемые как constraints, могут включать type terms:
+Интерфейс может содержать не только методы, но и элементы типов. Вместе с методами эти элементы определяют пересечение множеств типов.
+
+Термин `T` задаёт множество, состоящее только из типа `T`; термин `~T` — множество всех типов с базовым типом `T`; объединение `t1|t2|...` — объединение множеств терминов.
 
 ```go
-type Signed interface {
-    ~int | ~int8 | ~int16 | ~int32 | ~int64
+// An interface representing only the type int.
+interface {
+	int
+}
+
+// An interface representing all types with underlying type int.
+interface {
+	~int
+}
+
+// An interface representing all types with underlying type int that implement the String method.
+interface {
+	~int
+	String() string
+}
+
+// An interface representing all types with underlying type int or string.
+interface {
+	~int | ~string
 }
 ```
 
-`~T` означает types с underlying type `T`.
+Термин `T` в `~T` не может быть параметром типа, а его базовый тип должен быть самим `T`. Термины объединения должны попарно не пересекаться; для объединения с более чем одним термином термин не может быть `comparable` или интерфейсом, задающим методы, либо встраивать `comparable` или методы.
 
-Union terms должны удовлетворять restrictions specification; type sets unioned/intersected согласно elements.
+Интерфейсы, которые не являются базовыми, могут использоваться только как ограничения типов или как элементы других интерфейсов-ограничений, но не как типы значений и переменных.
 
-Interfaces с non-method type elements обычно могут использоваться только как constraints, а не ordinary variable types.
+Предопределённый интерфейс `comparable` задаёт множество всех строго сравнимых неинтерфейсных типов.
 
-### `comparable`
+<a id="Implementing_an_interface"></a>
+#### Реализация интерфейса
 
-Predeclared constraint `comparable` описывает strictly comparable non-interface types. Начиная с Go 1.20 comparable ordinary interface type arguments могут **satisfy** comparable constraint по специальному exception, даже если сами не implement strictly-comparable type set.
+Тип `T` реализует интерфейс `I`, если:
 
-## Map types
+- `T` не является интерфейсом и является элементом множества типов `I`; или
+- `T` является интерфейсом и его множество типов является подмножеством множества типов `I`.
+
+Значение типа `T` реализует интерфейс, если `T` реализует его.
+
+<a id="Map_types"></a>
+### Отображения
+
+Map — неупорядоченная группа элементов одного типа, индексируемых уникальными ключами другого типа. Значение неинициализированной map равно `nil`.
 
 ```text
 MapType = "map" "[" KeyType "]" ElementType .
+KeyType = Type .
 ```
 
-Key type должен support `==`/`!=`; функции/maps/slices не подходят keys.
-
-Zero map `nil`; lookup разрешён, insert в nil map panics.
-
-Comma-ok:
+Операторы `==` и `!=` должны быть полностью определены для типа ключа; поэтому функции, map и срезы нельзя использовать как тип ключа. Интерфейсные значения могут быть ключами, но сравнение динамических ключей может вызвать panic, если динамический тип несравним.
 
 ```go
-v, ok := m[key]
+map[string]int
+map[*T]struct{ x, y float64 }
+map[string]interface{}
 ```
 
-Missing key returns zero element + `false`.
+Map можно создать `make` или составным литералом. Количество элементов называется длиной и определяется `len`. `nil` map эквивалентна пустой map при чтении, но добавление элементов в `nil` map вызывает panic.
 
-## Channel types
+<a id="Channel_types"></a>
+### Каналы
+
+Канал обеспечивает механизм одновременно выполняющимся функциям обмениваться значениями указанного типа. Значение неинициализированного канала равно `nil`.
 
 ```text
 ChannelType = ( "chan" | "chan" "<-" | "<-" "chan" ) ElementType .
 ```
 
+Необязательный `<-` задаёт направление канала: send-only или receive-only. Без направления канал двунаправленный. Канал можно ограничить направлением присваиванием или явным преобразованием.
+
 ```go
-chan T
-chan<- T
-<-chan T
+chan T          // can be used to send and receive values of type T
+chan<- float64  // can only be used to send float64s
+<-chan int      // can only be used to receive ints
 ```
 
-`make(chan T, capacity)` создаёт channel. Capacity 0 = unbuffered synchronization. Nil channel never ready; send/receive block forever.
-
-## Named types
-
-Named type — defined type либо instantiated defined generic type; predeclared types также named.
-
-## Type identity
-
-Named types всегда distinct, кроме aliases. Unnamed types identical при structural conditions spec:
-
-- arrays same length/element;
-- slices same element;
-- structs same field sequence/names/types/tags/embedding/export package;
-- pointers same base;
-- functions same params/results/variadic;
-- interfaces define same type set;
-- maps same key/element;
-- channels same element/direction rules.
-
-## Underlying types
-
-Каждый type имеет underlying type. Для defined type — underlying RHS recursively; для literals — сам literal; для type parameter underlying type определяется constraint rules.
+Канал создаётся встроенной функцией `make`, которая принимает тип и необязательную ёмкость:
 
 ```go
-type T1 string
-// underlying: string
+make(chan int, 100)
 ```
 
-## Method sets
+Ёмкость задаёт размер буфера. Если ёмкость нулевая или отсутствует, коммуникация завершается только когда отправитель и получатель готовы одновременно. При положительной ёмкости отправка может выполняться без блокировки, пока буфер не заполнен, а получение — пока буфер не пуст. `nil`-канал никогда не готов к коммуникации.
 
-Method set определяет methods, callable through interface satisfaction.
+Канал можно закрыть встроенной функцией `close`; многорезультатная операция receive сообщает, было ли значение отправлено до закрытия.
 
-В общих чертах:
+<a id="Properties_of_types_and_values"></a>
+## Свойства типов и значений
 
-- defined type `T`: methods receiver `T`;
-- `*T`: methods receiver `T` и `*T`;
-- interface: methods type set/interface;
-- embedding promotes methods по rules struct embedding.
+<a id="Representation_of_values"></a>
+### Представление значений
 
-Call syntax иногда автоматически берёт address/dereference addressable values, но это **не меняет method set** для interface implementation.
+Значение типа `T` представляется одним или несколькими байтами памяти. Значения некоторых предопределённых типов могут иметь реализационно-зависимое представление.
 
-# Type declarations
+Значения массивов и структур состоят из полной последовательности их элементов или полей. Значения указателей, функций, срезов, map и каналов содержат ссылки на базовые данные, которые могут совместно использоваться несколькими значениями. Строковые и интерфейсные значения также могут ссылаться на базовые данные.
 
-## Alias declarations
+<a id="Underlying_types"></a>
+### Базовые типы
 
-```go
-type byte = uint8
-type NodeList = []*Node
-```
-
-Alias обозначает тот же type, не новый defined type.
-
-Generic alias support подчиняется текущим rules type parameters/instantiation.
-
-## Type definitions
+Каждый тип `T` имеет базовый тип. Если `T` — один из предопределённых булевых, числовых или строковых типов либо литерал типа, его базовый тип — сам `T`. Иначе базовый тип `T` — базовый тип типа, на который ссылается `T` в своём объявлении.
 
 ```go
-type MyString string
-type Pair[A, B any] struct {
-    A A
-    B B
-}
-```
+type (
+	A1 = string
+	A2 = A1
+)
 
-Defined type distinct от underlying/source types.
-
-При generic definition требуется type parameters list; instantiation создаёт named instantiated type.
-
-# Properties of types and values
-
-## Assignability
-
-Value `x` type `V` assignable variable type `T`, если выполняется одно из spec conditions, включая:
-
-- `V` и `T` identical;
-- identical underlying types, и хотя бы один не named type (с type-parameter rules);
-- compatible channel assignment;
-- `nil` assignable pointer/function/slice/map/channel/interface;
-- `x` interface-implementing value assignable interface `T`;
-- untyped constant representable `T`;
-- type-parameter conditions для всех types в type set.
-
-Assignment не выполняет arbitrary implicit conversions.
-
-## Representability
-
-Untyped constants могут implicit convert, только если value representable target.
-
-## Comparison
-
-Comparable:
-
-- booleans;
-- integers/floats/complex;
-- strings;
-- pointers;
-- channels;
-- interfaces (runtime dynamic values должны быть comparable для safe equality);
-- arrays of comparable elements;
-- structs of comparable fields.
-
-Not comparable:
-
-- slices;
-- maps;
-- functions (кроме comparison с `nil`).
-
-`NaN` obeys IEEE properties, поэтому equality не reflexive для floating values containing NaN.
-
-Strictly comparable используется generics constraint reasoning.
-
-# Blocks и scope
-
-Universe block содержит predeclared identifiers.
-
-Далее:
-
-- package block;
-- file block imports;
-- function body blocks;
-- explicit/implicit blocks control structures.
-
-Scope identifier зависит от declaration kind.
-
-Exported identifier:
-
-1. начинается Unicode uppercase letter;
-2. объявлен package block либо field/method name.
-
-# Declarations
-
-## Constant declarations
-
-```go
-const Pi = 3.141592653589793
-const zero = 0.0
-
-const (
-    Sunday = iota
-    Monday
-    Tuesday
+type (
+	B1 string
+	B2 B1
+	B3 []B1
+	B4 B3
 )
 ```
 
-Empty expression list внутри group повторяет previous non-empty ConstSpec вместе с type, если был.
+Базовый тип `string` у `string`, `A1`, `A2`, `B1`, `B2`; базовый тип `[]B1` у `B3` и `B4`.
 
-`iota` — untyped integer ordinal ConstSpec начиная с 0 в каждом constant declaration group.
+Для параметра типа `P` базовый тип определяется через множество типов ограничения: если все типы во множестве имеют одинаковый базовый тип `U`, базовый тип `P` равен `U`; иначе он отсутствует.
 
-## Type parameter declarations
+<a id="Type_identity"></a>
+### Идентичность типов
+
+Именованный тип всегда отличается от любого другого типа. Два неименованных типа идентичны, если их базовые литералы типов структурно эквивалентны по правилам спецификации.
+
+В частности:
+
+- два массива идентичны, если имеют одинаковую длину и идентичные типы элементов;
+- два среза идентичны при идентичных типах элементов;
+- две структуры идентичны при одинаковой последовательности полей, одинаковых именах, идентичных типах, одинаковых тегах и одинаковом статусе встраивания; неэкспортированные имена из разных пакетов всегда различны;
+- два указателя идентичны при идентичных базовых типах;
+- две функции идентичны при одинаковом числе параметров и результатов, идентичных соответствующих типах и одинаковом признаке variadic; имена параметров и результатов не учитываются;
+- два интерфейса идентичны, если определяют одинаковое множество типов;
+- две map идентичны при идентичных типах ключей и элементов;
+- два канала идентичны при идентичных типах элементов и одинаковом направлении.
+
+<a id="Assignability"></a>
+### Присваиваемость
+
+Значение `x` типа `V` присваиваемо переменной типа `T`, если выполняется хотя бы одно из условий:
+
+- `V` и `T` идентичны;
+- `V` и `T` имеют идентичные базовые типы, но не являются параметрами типов, и хотя бы один из `V` или `T` не является именованным типом;
+- `V` и `T` — канальные типы с идентичным типом элемента, `V` — двунаправленный канал, и хотя бы один из `V` или `T` не является именованным типом;
+- `T` — интерфейсный тип, но не параметр типа, и `x` реализует `T`;
+- `x` равно предопределённому идентификатору `nil`, а `T` — указатель, функция, срез, map, канал или интерфейс;
+- `x` — нетипизированная константа, представимая значением типа `T`, и `T` не является параметром типа;
+- `x` — нетипизированное булево значение, а `T` — `bool` или определённый булев тип;
+- `x` — возможно частично инстанцированная обобщённая функция, а `T` — функциональный тип, и отсутствующие аргументы типов могут быть выведены так, что базовый функциональный тип полностью инстанцированной функции становится идентичным `T`.
+
+Дополнительно, если `x` имеет тип `V`, а `V` или `T` являются параметрами типов, присваивание допустимо при выполнении соответствующих условий для всех типов в их множествах типов, как определено спецификацией.
+
+```go
+var x []int
+var y []int
+x = y
+
+var f func(int) int
+func id[T any](x T) T { return x }
+f = id // same as f = id[int]
+```
+
+<a id="Representability"></a>
+### Представимость
+
+Константа `x` представима значением типа `T`, если выполняется одно из правил спецификации: для булевых и строковых типов вид константы совпадает; для целочисленных типов значение находится в диапазоне; для типов с плавающей точкой и комплексных типов допускается округление к точности соответствующего типа без переполнения до бесконечности.
+
+Если `T` — параметр типа, `x` должна быть представима каждым типом во множестве типов `T`.
+
+<a id="Method_sets"></a>
+### Наборы методов
+
+Набор методов типа определяет методы, которые можно вызвать для операнда этого типа, и участвует в реализации интерфейсов.
+
+- набор методов определённого типа `T` состоит из методов, объявленных с получателем `T`;
+- набор методов указателя `*T`, где `T` — определённый тип, состоит из методов с получателем `T` или `*T`;
+- набор методов интерфейсного типа — пересечение наборов методов каждого типа в его множестве типов;
+- для структур применяются правила продвинутых методов встроенных полей.
+
+Остальные типы имеют пустой набор методов.
+
+<a id="Blocks"></a>
+## Блоки
+
+```text
+Block = "{" StatementList "}" .
+StatementList = { Statement ";" } .
+```
+
+Помимо явных блоков в исходном тексте существуют неявные блоки:
+
+1. universe block охватывает весь исходный текст Go;
+2. каждый пакет имеет package block;
+3. каждый файл имеет file block;
+4. каждый `if`, `for` и `switch` считается находящимся в собственном неявном блоке;
+5. каждое предложение `switch` или `select` действует как неявный блок.
+
+Блоки могут быть вложенными и влияют на область видимости.
+
+<a id="Declarations_and_scope"></a>
+## Объявления и области видимости
+
+Объявление связывает непустой идентификатор с константой, типом, параметром типа, переменной, функцией, меткой или пакетом. Каждый идентификатор в программе должен быть объявлен; один идентификатор нельзя объявить дважды в одном блоке, и идентификатор нельзя объявить одновременно в file block и package block.
+
+```text
+Declaration   = ConstDecl | TypeDecl | VarDecl .
+TopLevelDecl  = Declaration | FunctionDecl | MethodDecl .
+```
+
+Область видимости объявленного идентификатора определяется видом объявления. Идентификатор может быть переобъявлен во внутреннем блоке; во время существования внутреннего объявления оно обозначает внутреннюю сущность.
+
+<a id="Label_scopes"></a>
+### Область видимости меток
+
+Метки объявляются labeled statement и используются `break`, `continue`, `goto`. В отличие от других идентификаторов, метка видима во всём теле функции и не конфликтует с идентификаторами, которые не являются метками.
+
+<a id="Blank_identifier"></a>
+### Пустой идентификатор
+
+Пустой идентификатор `_` можно использовать в объявлениях или присваиваниях как обычный идентификатор, но его значение не привязывается. Он не объявляется и потому не вводит имя в область видимости.
+
+<a id="Predeclared_identifiers"></a>
+### Предопределённые идентификаторы
+
+```text
+Types:
+	any bool byte comparable
+	complex64 complex128 error float32 float64
+	int int8 int16 int32 int64 rune string
+	uint uint8 uint16 uint32 uint64 uintptr
+
+Constants:
+	true false iota
+
+Zero value:
+	nil
+
+Functions:
+	append cap clear close complex copy delete imag len
+	make max min new panic print println real recover
+```
+
+<a id="Exported_identifiers"></a>
+### Экспортируемые идентификаторы
+
+Идентификатор экспортируется, если первый символ его имени — заглавная буква Unicode и идентификатор объявлен в package block либо является именем поля или метода. Все остальные идентификаторы не экспортируются.
+
+<a id="Uniqueness_of_identifiers"></a>
+### Уникальность идентификаторов
+
+Два идентификатора различны, если пишутся по-разному либо появляются в разных пакетах и не экспортируются. Иначе они одинаковы. В данном множестве идентификаторов идентификатор считается уникальным, если не совпадает ни с одним другим.
+
+<a id="Constant_declarations"></a>
+### Объявления констант
+
+```text
+ConstDecl      = "const" ( ConstSpec | "(" { ConstSpec ";" } ")" ) .
+ConstSpec      = IdentifierList [ [ Type ] "=" ExpressionList ] .
+IdentifierList = identifier { "," identifier } .
+ExpressionList = Expression { "," Expression } .
+```
+
+```go
+const Pi float64 = 3.14159265358979323846
+const zero = 0.0
+const (
+	size int64 = 1024
+	eof        = -1
+)
+```
+
+Число идентификаторов должно совпадать с числом выражений. Если тип указан, все константы принимают этот тип и выражения должны быть присваиваемы ему. Если тип опущен, константы принимают индивидуальные типы соответствующих выражений. Если список выражений отсутствует в ConstSpec внутри скобок, он эквивалентен текстовой подстановке предыдущего непустого списка и его типа, если он был указан.
+
+<a id="Iota"></a>
+### Iota
+
+В ConstSpec предопределённый идентификатор `iota` представляет последовательные нетипизированные целочисленные константы. Его значение — индекс соответствующего ConstSpec начиная с нуля.
+
+```go
+const (
+	c0 = iota  // c0 == 0
+	c1 = iota  // c1 == 1
+	c2 = iota  // c2 == 2
+)
+```
+
+```go
+const (
+	a = 1 << iota  // a == 1  (iota == 0)
+	b = 1 << iota  // b == 2  (iota == 1)
+	c = 3          // c == 3  (iota == 2, unused)
+	d = 1 << iota  // d == 8  (iota == 3)
+)
+```
+
+<a id="Type_declarations"></a>
+### Объявления типов
+
+```text
+TypeDecl = "type" ( TypeSpec | "(" { TypeSpec ";" } ")" ) .
+TypeSpec = AliasDecl | TypeDef .
+```
+
+<a id="Alias_declarations"></a>
+#### Объявления псевдонимов
+
+```text
+AliasDecl = identifier [ TypeParameters ] "=" Type .
+```
+
+Объявление псевдонима связывает идентификатор с заданным типом. В области видимости идентификатора он обозначает тот же тип.
+
+```go
+type nodeList = []*Node  // nodeList and []*Node are identical types
+type Polar = polar       // Polar and polar denote identical types
+type A = B               // A and B denote identical types
+```
+
+Если объявление псевдонима задаёт параметры типов, имя псевдонима обозначает обобщённый псевдоним и при использовании должно быть инстанцировано.
+
+<a id="Type_definitions"></a>
+#### Определения типов
+
+```text
+TypeDef = identifier [ TypeParameters ] Type .
+```
+
+Определение типа создаёт новый определённый тип с тем же базовым типом и операциями, что указанный тип, и привязывает к нему идентификатор. Новый тип отличается от любого другого, включая тип, из которого он создан.
+
+```go
+type Point struct { x, y float64 }
+type polar Point
+type TreeNode struct {
+	left, right *TreeNode
+	value any
+}
+type Block interface {
+	BlockSize() int
+	Encrypt(src, dst []byte)
+	Decrypt(src, dst []byte)
+}
+```
+
+Если определение задаёт параметры типов, имя обозначает обобщённый тип, который должен быть инстанцирован при использовании.
+
+```go
+type List[T any] struct {
+	next  *List[T]
+	value T
+}
+```
+
+<a id="Type_parameter_declarations"></a>
+### Объявления параметров типов
+
+Список параметров типов объявляет параметры типов обобщённой функции, метода или объявления типа. Он выглядит как обычный список параметров функции, но все имена обязательны, а список заключён в квадратные скобки.
 
 ```text
 TypeParameters = "[" TypeParamList [ "," ] "]" .
-TypeParamList   = TypeParamDecl { "," TypeParamDecl } .
-TypeParamDecl   = IdentifierList TypeConstraint .
+TypeParamList  = TypeParamDecl { "," TypeParamDecl } .
+TypeParamDecl  = IdentifierList TypeConstraint .
 ```
-
-Примеры:
 
 ```go
 [P any]
+[S interface{ ~[]byte|string }]
 [S ~[]E, E any]
-[K comparable, V any]
+[P Constraint[int]]
+[_ any]
 ```
 
-Каждый type parameter — distinct named placeholder type.
+Каждое непустое имя в списке должно быть уникальным. Имя объявляет параметр типа — новый и отличный именованный тип, который служит заполнителем пока неизвестного типа. При инстанцировании обобщённой функции, метода или типа параметр заменяется аргументом типа.
 
-Constraint — interface/type element.
+<a id="Type_constraints"></a>
+#### Ограничения типов
 
-Convenient omission `interface{}` разрешён в parameter list:
+Каждый параметр типа имеет ограничение — интерфейс, определяющий множество допустимых аргументов типов. Если ограничение задано в виде элемента типа, окружающий `interface{}` может быть опущен.
 
 ```go
-[T ~int]
-[T int | string]
+[T interface{ ~int | ~string }]
+[T ~int | ~string]
 ```
 
-Если parsing single parameter ambiguous (`[P *C]`), используйте explicit interface или trailing comma.
+<a id="Satisfying_a_type_constraint"></a>
+#### Удовлетворение ограничению типа
 
-### Constraint satisfaction
+Аргумент типа `T` удовлетворяет ограничению `C`, если `T` является элементом множества типов, заданного `C`. В случае `comparable` действует специальное правило Go 1.20: строго сравнимый `T` реализует `comparable`; кроме того, сравнимый неинтерфейсный тип либо интерфейс, удовлетворяющий требуемому базовому интерфейсу, может удовлетворять соответствующему ограничению даже в случаях, когда не реализует `comparable` в строгом смысле.
 
-Type argument должен satisfy constraint: обычно implement interface/type set. `comparable` имеет специальное Go 1.20 exception для comparable interface arguments.
+<a id="Variable_declarations"></a>
+### Объявления переменных
 
-## Variable declarations
+```text
+VarDecl     = "var" ( VarSpec | "(" { VarSpec ";" } ")" ) .
+VarSpec     = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
+```
+
+Объявление переменной создаёт одну или несколько переменных, связывает с ними идентификаторы и задаёт каждой тип и начальное значение.
 
 ```go
 var i int
-var x, y = 1, "two"
-var p *T
+var U, V, W float64
+var k = 0
+var x, y float32 = -1, -2
+var (
+	i       int
+	u, v, s = 2.0, 3.0, "bar"
+)
 ```
 
-Без initializer → zero value. Без explicit type → type соответствующего initialization value; untyped constants получают default type.
+Если список выражений отсутствует, переменные инициализируются нулевыми значениями. Если тип опущен, переменная принимает тип соответствующего выражения; нетипизированные значения сначала принимают тип по умолчанию. `nil` без явного типа не может быть единственным основанием для вывода типа переменной.
 
-`nil` нельзя использовать единственным initializer variable без explicit type.
+<a id="Short_variable_declarations"></a>
+### Короткие объявления переменных
 
-## Short variable declarations
+```text
+ShortVarDecl = IdentifierList ":=" ExpressionList .
+```
 
 ```go
-i := 0
-x, y := f()
+i, j := 0, 10
+f := func() int { return 7 }
+ch := make(chan int)
+r, w, _ := os.Pipe()
+_, y, _ := coord(p)
 ```
 
-Redeclaration разрешена в same block, если redeclared variable same type и хотя бы одна non-blank variable слева новая.
+В отличие от обычных объявлений переменных, короткое объявление может переобъявить переменные, если они были объявлены ранее в том же блоке или являются параметрами функции с тем же типом, и хотя бы одна непустая переменная слева является новой. Переобъявление не создаёт новую переменную.
 
-```go
-field1, offset := nextField(str, 0)
-field2, offset := nextField(str, offset)
-```
+Короткие объявления могут появляться только внутри функций.
 
-Short declaration только внутри functions.
-
-## Function declarations
+<a id="Function_declarations"></a>
+### Объявления функций
 
 ```text
 FunctionDecl = "func" FunctionName [ TypeParameters ] Signature [ FunctionBody ] .
+FunctionName = identifier .
+FunctionBody = Block .
 ```
 
-Generic function:
+Если сигнатура объявляет параметры результатов, список операторов тела функции должен завершаться terminating statement.
 
 ```go
-func min[T ~int | ~float64](x, y T) T {
-    if x < y {
-        return x
-    }
-    return y
+func IndexRune(s string, r rune) int {
+	for i, c := range s {
+		if c == r {
+			return i
+		}
+	}
+	return -1
 }
 ```
 
-Generic function должен быть instantiated до использования как callable/function value, если inference не выполняет instantiation contextually.
+Функция может объявлять параметры типов и становится обобщённой. Обобщённая функция должна быть инстанцирована перед вызовом или использованием как значения функции; аргументы типов могут быть выведены в разрешённых контекстах.
 
-Body может отсутствовать у non-generic declaration implemented externally (например assembly).
+<a id="Method_declarations"></a>
+### Объявления методов
 
-## Method declarations
+Метод — функция с получателем. Объявление метода связывает идентификатор метода с методом и привязывает метод к базовому типу получателя.
 
 ```text
 MethodDecl = "func" Receiver MethodName [ TypeParameters ] Signature [ FunctionBody ] .
+Receiver   = Parameters .
 ```
 
-Receiver — один non-variadic parameter; base type defined в том же package, не pointer/interface base definition.
+Получатель задаётся одним неvariadic-параметром. Его базовый тип должен быть определённым типом, объявленным в том же пакете, что и метод, и не должен быть указателем или интерфейсом.
 
 ```go
-func (p *Point) Scale(factor float64) {
-    p.x *= factor
-    p.y *= factor
+func (p *Point) Length() float64 {
+	return math.Sqrt(p.x * p.x + p.y * p.y)
 }
 ```
 
-Для generic receiver type receiver заново объявляет соответствующие receiver type parameter names:
+Если базовый тип получателя является обобщённым, спецификация получателя должна объявить соответствующие параметры типов для использования методом.
 
-```go
-type Pair[A, B any] struct {
-    a A
-    b B
-}
-
-func (p Pair[A, B]) Swap() Pair[B, A] {
-    return Pair[B, A]{p.b, p.a}
-}
-```
-
-### Go 1.27: generic methods
-
-Go 1.27 разрешает **собственные type parameters method**, дополнительно к receiver type parameters:
+Начиная с Go 1.27 объявление метода может также объявлять собственные параметры типов после имени метода.
 
 ```go
 type List[E any] []E
 
+// Apply returns the list obtained from applying f to each element of l.
 func (l List[E]) Apply[F any](f func(E) F) List[F] {
-    r := make(List[F], len(l))
-    for i, x := range l {
-        r[i] = f(x)
-    }
-    return r
+	r := make(List[F], len(l))
+	for i, x := range l {
+		r[i] = f(x)
+	}
+	return r
 }
 ```
 
-Method name обозначает generic method и должен быть instantiated явно или через supported inference context перед call/value use.
+<a id="Expressions"></a>
+## Выражения
 
-Это изменение `[Go 1.27]`; старые FAQ/статьи, утверждающие, что methods не имеют собственных type parameters, устарели относительно этой specification.
+Выражение задаёт вычисление значения посредством применения операторов и функций к операндам.
 
-# Expressions
+<a id="Operands"></a>
+### Операнды
 
-## Operands
+Операнды обозначают элементарные значения выражения. Операндом может быть литерал, непустой идентификатор, обозначающий константу, переменную или функцию, квалифицированный идентификатор или заключённое в скобки выражение.
 
-Operand может быть literal, identifier, qualified identifier, instantiated generic function/type-related operand либо parenthesized expression.
+```text
+Operand     = Literal | OperandName [ TypeArgs ] | "(" Expression ")" .
+Literal     = BasicLit | CompositeLit | FunctionLit .
+BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
+OperandName = identifier | QualifiedIdent .
+```
 
-Blank identifier нельзя использовать как ordinary value operand.
+<a id="Qualified_identifiers"></a>
+### Квалифицированные идентификаторы
 
-## Qualified identifiers
+Квалифицированный идентификатор обращается к экспортированному идентификатору пакета, который должен быть импортирован.
+
+```text
+QualifiedIdent = PackageName "." identifier .
+```
 
 ```go
 math.Sin
 ```
 
-Package должен быть imported; selected identifier exported.
+<a id="Composite_literals"></a>
+### Составные литералы
 
-## Composite literals
+Составные литералы создают значения структур, массивов, срезов и map и при каждом вычислении конструируют новое значение. Они состоят из типа литерала и списка элементов в фигурных скобках.
 
-Создают values structs/arrays/slices/maps:
-
-```go
-Point{1, 2}
-[]int{1, 2, 3}
-map[string]int{"a": 1}
+```text
+CompositeLit  = LiteralType LiteralValue .
+LiteralType   = StructType | ArrayType | "[" "..." "]" ElementType |
+                SliceType | MapType | TypeName [ TypeArgs ] .
+LiteralValue  = "{" [ ElementList [ "," ] ] "}" .
+ElementList   = KeyedElement { "," KeyedElement } .
+KeyedElement  = [ Key ":" ] Element .
+Key           = FieldName | Expression | LiteralValue .
+FieldName     = identifier .
+Element       = Expression | LiteralValue .
 ```
 
-### Struct literals
+Для массивов, срезов и map ключи имеют правила, соответствующие индексам или ключам map. Отсутствующий индекс массива/среза равен предыдущему индексу плюс один. Для map каждый элемент должен иметь ключ, а несколько элементов не могут иметь одинаковые константные ключи.
 
-Unkeyed literal требует fields по declaration order и обычно запрещён для struct с unexported fields из другого package.
+Для литерала структуры без ключей значения должны перечисляться в порядке полей, для каждого поля должно быть значение, а литерал, относящийся к структуре из другого пакета, не может задавать неэкспортированные поля.
 
-Keyed literal может опускать unspecified fields → zero.
+Начиная с Go 1.27 ключ в составном литерале структуры может быть любым допустимым селектором поля для типа структуры, включая селектор продвинутого поля. При этом:
 
-### Go 1.27: promoted fields как keys
-
-В Go 1.27 keyed struct literal key может обозначать valid selector promoted field, если:
-
-- traversed embedded fields не pointer types;
-- key не обозначает promoted field внутри embedded struct, который одновременно задан другим overlapping key;
-- duplicate/overlapping selections запрещены.
-
-Пример conceptually:
+- путь селектора может проходить через встроенные поля структуры;
+- встроенное поле указательного типа нельзя проходить при выборе продвинутого поля литерала;
+- два ключа не могут обозначать пересекающиеся части одного значения структуры;
+- один и тот же селектор нельзя задавать более одного раза.
 
 ```go
-type Object struct{ name, color string }
-type Point3D struct {
-    Object
-    x, y, z float64
+type Object struct {
+	name string
 }
+
+type Line struct {
+	Object
+	length float64
+}
+
+var obj = Object{name: "horizontal"}
+
+_ = Line{name: "diagonal", length: 10}
+_ = Line{Object: obj, length: 10}
+_ = Line{Object: obj, name: "diagonal"} // invalid: overlapping selectors
 ```
 
-Current Go 1.27 spec расширяет selector semantics keyed fields; при overlapping direct embedded initialization conflict literal invalid.
+Указание списка элементов типа `T` внутри элемента составного литерала контекстного типа позволяет в предусмотренных спецификацией случаях опускать повторение типа `T`; аналогично можно опускать `&T` для элементов типа `*T`.
 
-### Arrays/slices/maps
+<a id="Function_literals"></a>
+### Функциональные литералы
 
-Array/slice keys — integer indexes; omitted index = previous + 1.
+Функциональный литерал представляет анонимную функцию.
+
+```text
+FunctionLit = "func" Signature FunctionBody .
+```
 
 ```go
-[10]float32{-1, 4: -0.1, -0.1, 9: -1}
-[]Point{{0, 1}, {1, 2}}
+func(a, b int, z float64) bool { return a*b < int(z) }
 ```
 
-Map literal требует key для каждого element.
+Функциональные литералы не могут объявлять параметры типов. Они являются замыканиями: могут обращаться к переменным окружающей функции; эти переменные совместно используются функцией и литералом и существуют, пока к ним есть доступ.
 
-Nested literal element type можно elide, если identical expected element/key type.
+<a id="Primary_expressions"></a>
+### Первичные выражения
 
-## Function literals
+Первичные выражения являются операндами для postfix-операций.
 
-```go
-f := func(x, y int) int { return x + y }
+```text
+PrimaryExpr = Operand |
+              Conversion |
+              MethodExpr |
+              PrimaryExpr Selector |
+              PrimaryExpr Index |
+              PrimaryExpr Slice |
+              PrimaryExpr TypeAssertion |
+              PrimaryExpr Arguments .
 ```
 
-Closures capture surrounding variables by reference to variables (shared storage semantics), не snapshot values автоматически.
+<a id="Selectors"></a>
+### Селекторы
 
-Function literals **не могут объявлять type parameters**.
-
-## Selectors
+Для первичного выражения `x`, не являющегося именем пакета, выражение
 
 ```go
 x.f
 ```
 
-Selector ищет field/method shallowest depth. Если на minimal depth более одного candidate — ambiguous/invalid.
+обозначает поле или метод `f` значения `x`. Идентификатор `f` не может быть пустым. Глубина поля или метода — число встроенных полей, через которые нужно пройти до него.
 
-Для pointer to struct field selector действует implicit dereference. Nil pointer field access panics.
+Для значения типа `T` или `*T`, где `T` не указатель и не интерфейс, `x.f` обозначает поле или метод `f` на наименьшей глубине. Если на этой глубине существует не ровно один `f`, селектор недопустим. Для интерфейса `x.f` обозначает фактический метод динамического значения, имя которого входит в набор методов статического интерфейса.
 
-Nil interface method call/value evaluation panics.
+Если тип `x` — определённый указательный тип и `(*x).f` является допустимым селектором поля, `x.f` сокращает `(*x).f`. Это исключение не распространяется на методы.
 
-## Method expressions
+Если `x` — nil-указатель и селектор обозначает поле структуры, вычисление или присваивание `x.f` вызывает runtime panic. Вызов/вычисление метода nil-интерфейса также вызывает runtime panic.
 
-```go
-T.M
-(*T).M
+<a id="Method_expressions"></a>
+### Выражения методов
+
+Если `M` входит в набор методов типа `T`, выражение `T.M` является функцией с теми же аргументами, что `M`, но с дополнительным первым аргументом-получателем.
+
+```text
+MethodExpr   = ReceiverType "." MethodName .
+ReceiverType = Type .
 ```
-
-Method expression превращает method в function с explicit receiver первым argument.
 
 ```go
 t.Mv(7)
 T.Mv(t, 7)
+(T).Mv(t, 7)
+f1 := T.Mv; f1(t, 7)
+f2 := (T).Mv; f2(t, 7)
 ```
 
-## Method values
+<a id="Method_values"></a>
+### Значения методов
+
+Если выражение `x` имеет статический тип `T`, а `M` входит в набор методов `T`, `x.M` называется значением метода. Оно является функциональным значением, которое вызывается с теми же аргументами, что метод. Выражение `x` вычисляется и сохраняется при вычислении значения метода; сохранённая копия затем используется как получатель будущих вызовов.
 
 ```go
+t := new(T)
+s := S{T: t}
 f := t.M
+g := s.M
 ```
 
-Receiver expression `t` evaluation/save происходит при создании method value; subsequent calls используют saved receiver.
+<a id="Index_expressions"></a>
+### Индексные выражения
 
-## Index expressions
+Выражение `a[x]` обозначает элемент массива, указателя на массив, среза, строки или map `a`, индексированный `x`. Для массивов, срезов и строк индекс должен быть целым и находиться в диапазоне; выход за диапазон во время выполнения вызывает panic. Для строки результат имеет тип `byte` и не присваиваем.
 
-`a[x]` применяется array/*array/slice/string/map и type parameters с соответствующими core types.
-
-Out-of-range array/slice/string runtime index panics. Map missing key returns zero element.
-
-## Slice expressions
-
-Simple:
+Для map `x` должен быть присваиваем типу ключа. Если ключа нет или map равна `nil`, результат — нулевое значение типа элемента. В форме
 
 ```go
-a[low:high]
+v, ok = a[x]
+v, ok := a[x]
+var v, ok = a[x]
 ```
 
-Full:
+дополнительный булев результат сообщает о присутствии ключа.
+
+Для параметра типа индексное выражение должно быть допустимо для всех типов множества, типы элементов должны быть идентичны, а при наличии map все типы множества должны быть map с идентичными типами ключей.
+
+<a id="Slice_expressions"></a>
+### Выражения среза
+
+Простая форма:
 
 ```go
-a[low:high:max]
+a[low : high]
 ```
 
-Full form контролирует resulting capacity `max-low`.
+строит подстроку или срез. Пропущенный `low` равен 0, пропущенный `high` — длине операнда. Для массива и строки должны выполняться границы `0 <= low <= high <= len(a)`, для среза верхней границей является `cap(a)`. Выход за диапазон во время выполнения вызывает panic.
 
-Strings можно slice by bytes, producing substring bytes; boundary не обязана быть rune boundary.
+Полная форма для массива, указателя на массив или среза:
 
-## Type assertions
+```go
+a[low : high : max]
+```
+
+дополнительно задаёт ёмкость результата `max-low` и требует `0 <= low <= high <= max <= cap(a)`.
+
+<a id="Type_assertions"></a>
+### Проверки типов
+
+Для выражения `x` интерфейсного типа, но не параметра типа, выражение
 
 ```go
 x.(T)
 ```
 
-`x` interface; assertion требует dynamic type implements target condition.
-
-Safe two-result:
+утверждает, что `x` не `nil` и хранимое в нём значение имеет тип `T` либо динамический тип реализует интерфейс `T`. Если утверждение ложно, однорезультатная форма вызывает runtime panic.
 
 ```go
+v, ok = x.(T)
 v, ok := x.(T)
+var v, ok = x.(T)
 ```
 
-One-result failed assertion panics.
+вместо panic возвращает `ok == false` и нулевое значение `T`.
 
-## Calls
+<a id="Calls"></a>
+### Вызовы
+
+Вызов `f(a1, a2, … an)` вызывает `f` с указанными аргументами. За исключением специального многорезультатного случая, аргументы должны быть однозначными выражениями, присваиваемыми соответствующим параметрам. Значение функции и аргументы вычисляются в обычном порядке, затем создаётся хранилище параметров и результатов, аргументы присваиваются параметрам и начинается выполнение функции.
+
+Вызов nil-функции вызывает runtime panic.
+
+Вызов метода `x.m()` допустим, если набор методов типа `x` содержит `m`. Если `x` адресуем и набор методов `&x` содержит `m`, `x.m()` является сокращением `(&x).m()`.
+
+<a id="Passing_arguments_to_..._parameters"></a>
+### Передача аргументов параметрам `...`
+
+Если `f` — variadic-функция с последним параметром `p` типа `...T`, внутри `f` тип `p` эквивалентен `[]T`. При отсутствии соответствующих аргументов `p == nil`; иначе создаётся новый срез `[]T` с переданными значениями.
+
+Если последний аргумент присваиваем `[]T` и сопровождается `...`, он передаётся без изменения и новый срез не создаётся.
 
 ```go
-f(a1, a2)
-x.M(args)
+func Greeting(prefix string, who ...string)
+Greeting("nobody")
+Greeting("hello:", "Joe", "Anna", "Eileen")
+
+s := []string{"James", "Jasmine"}
+Greeting("goodbye:", s...)
 ```
 
-Arguments assignable parameters. Method call допускает implicit `&x` для addressable value, если `(&x)` method set содержит method.
+<a id="Instantiations"></a>
+### Инстанцирование
 
-Multi-valued expression может supply arguments при allowed shape.
+Обобщённая функция, метод или тип инстанцируются подстановкой аргументов типов вместо параметров типов. Подстановка применяется ко всему объявлению, включая сам список параметров типов, после чего каждый аргумент типа должен удовлетворять соответствующему, при необходимости инстанцированному, ограничению.
 
-Variadic call:
-
-```go
-Greeting("hello", "A", "B")
-Greeting("hello", names...)
-```
-
-При `slice...` existing slice передаётся без создания нового variadic backing slice.
-
-## Instantiation
-
-Generic type/function/method instantiated подстановкой type arguments и последующей проверкой constraints.
-
-```go
-min[int]
-List[string]
-list.Apply[string]
-```
-
-Для generic **type** все type arguments explicit.
-
-Для generic function/method arguments могут быть partially/completely inferred в поддерживаемых contexts: calls, assignments к known function type, function arguments/results.
-
-Partial type argument list задаёт prefix; omitted suffix inferred.
-
-## Type inference
-
-Inference решает equations между argument/parameter types и constraints.
-
-Два этапа в общем виде:
-
-1. unify typed operands/constraints;
-2. для ещё unresolved type parameters использовать kinds/default types untyped constants.
-
-Если не все bound type parameters определены однозначно или constraints не satisfied, inference fails compile-time.
-
-# Operators
-
-Precedence:
+Инстанцирование обобщённого типа, функции или метода приводит соответственно к необобщённому типу, функции или методу.
 
 ```text
-*  /  %  <<  >>  &  &^   highest binary level
-+  -  |  ^
-== != < <= > >=
-&&
-||                         lowest
+type parameter list    type arguments    after substitution
+
+[P any]                int               int satisfies any
+[S ~[]E, E any]        []int, int        []int satisfies ~[]int, int satisfies any
+[P io.Writer]          string            illegal: string doesn't satisfy io.Writer
+[P comparable]         any               any satisfies (but does not implement) comparable
 ```
 
-Unary:
+При использовании обобщённой функции или метода аргументы типов могут быть заданы явно либо частично/полностью выведены из контекста. Если вывод возможен, список аргументов можно опустить, когда функция вызывается с обычными аргументами, присваивается переменной известного функционального типа, передаётся как аргумент другой функции или возвращается как результат.
+
+```go
+func sum[T ~int | ~float64 | ~string](x... T) T { … }
+
+x := sum                       // illegal: the type of x is unknown
+intSum := sum[int]
+a := intSum(2, 3)
+b := sum[float64](2.0, 3)
+c := sum(b, -1)
+
+type sumFunc func(x... string) string
+var f sumFunc = sum            // same as var f sumFunc = sum[string]
+f = sum                        // same as f = sum[string]
+```
+
+Для обобщённого типа все аргументы типов всегда задаются явно.
+
+<a id="Type_inference"></a>
+### Вывод типов
+
+При использовании обобщённой функции некоторые или все аргументы типов можно опустить, если они выводятся из контекста использования, включая ограничения параметров типов. Вывод успешен, если найдены все отсутствующие аргументы и последующее инстанцирование успешно.
+
+Вывод использует отношения между парами типов. Например, аргумент функции должен быть присваиваем соответствующему параметру; если один из этих типов содержит параметры типов, вывод ищет аргументы типов, при которых отношение присваиваемости выполняется. Аналогично учитывается удовлетворение ограничениям.
+
+Каждая сопоставленная пара образует уравнение типов. Решение набора таких уравнений для связанных параметров типов даёт отсутствующие аргументы.
+
+```go
+func dedup[S ~[]E, E comparable](S) S { … }
+
+type Slice []int
+var s Slice
+s = dedup(s)   // same as s = dedup[Slice, int](s)
+```
+
+Соответствующие уравнения можно записать как:
 
 ```text
-+ - ! ^ * & <-
+Slice ≡ₐ S
+S     ≡c ~[]E
 ```
 
-Multiplication operators bind strongest; comparisons same level.
+откуда выводятся `S ➞ Slice` и `E ➞ int`.
 
-## Arithmetic
+Вывод типов поддерживает вызовы обобщённых функций и любое использование обобщённой функции в контексте, где она должна быть присваиваема необобщённому функциональному типу. Это включает присваивание переменной, передачу как аргумента другой функции, преобразование к функциональному типу и другие контексты присваивания.
 
-Integer:
+Для вызова `f(a0, a1, …)`, где `f` или аргумент-функция `ai` является обобщённой функцией, каждая пара соответствующих типизированных аргумента и параметра задаёт уравнение присваиваемости `typeof(pi) ≡ₐ typeof(ai)`. Нетипизированные константы для связанных параметров собираются отдельно и учитываются после типизированных операндов.
+
+В контексте, где обобщённая функция `f` должна быть присваиваема необобщённому функциональному типу `T`, используется уравнение:
 
 ```text
-+ - * / % << >> & | ^ &^
+typeof(f) ≡ₐ T
 ```
 
-Division integers truncates toward zero. Division by zero panics for non-constant runtime divisor; constant zero invalid compile-time.
+Каждый параметр типа `Pk` с ограничением `Ck` также задаёт уравнение `Pk ≡c Ck`.
 
-Signed overflow defined by two's-complement-like deterministic representation rules: operations may overflow but compiler cannot assume overflow never occurs.
+Вывод проходит две фазы: сначала уравнения решаются унификацией типов с использованием типизированных операндов; затем для ещё невыведенных связанных параметров, которым соответствуют нетипизированные константы, определяется общий вид констант и выбирается тип по умолчанию. Если после этих фаз отсутствуют аргументы типов либо возникает конфликт, вывод завершается ошибкой.
 
-Unsigned arithmetic modulo `2^n`.
+<a id="Type_unification"></a>
+#### Унификация типов
 
-Floating operations follow IEEE properties subject spec implementation precision rules.
+Унификация рекурсивно сравнивает левые и правые типы уравнений и ищет аргументы связанных параметров типов, при которых типы становятся идентичными или совместимыми по присваиванию. Вывод поддерживает отображение связанных параметров на уже найденные аргументы и уточняет его по мере обработки уравнений.
 
-## String concatenation
+Для уравнения присваиваемости верхнеуровневая структура типов унифицируется свободно, а типы элементов — точно, отражая правила присваивания. Для уравнений ограничений используются дополнительные правила для общих базовых типов, каналов, единственных терминов и наборов методов. Точные правила приведены в приложении.
 
-```go
-s := "hello" + " " + "world"
-```
-
-## Comparison
+<a id="Operators"></a>
+### Операторы
 
 ```text
-== != < <= > >=
+Expression = UnaryExpr | Expression binary_op Expression .
+UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+
+binary_op  = "||" | "&&" | rel_op | add_op | mul_op .
+rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
+add_op     = "+" | "-" | "|" | "^" .
+mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
+
+unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .
 ```
 
-Ordered operators для integers/floats/strings/type parameters appropriate sets.
+Кроме сдвигов и операций с нетипизированными константами, типы операндов бинарного оператора должны быть идентичны. Если один операнд — нетипизированная константа, а второй — типизированный, константа неявно преобразуется к типу второго операнда.
 
-Strings compare lexically by bytes.
-
-Pointers equal если same variable/address or both nil with special zero-size caveat implementation; channels equal same channel/both nil; interfaces compare dynamic types/values and panic if dynamic values not comparable.
-
-## Logical
+<a id="Operator_precedence"></a>
+#### Приоритет операторов
 
 ```text
-&& || !
+Precedence    Operator
+    5             *  /  %  <<  >>  &  &^
+    4             +  -  |  ^
+    3             ==  !=  <  <=  >  >=
+    2             &&
+    1             ||
 ```
 
-`&&`/`||` short-circuit left-to-right.
+Унарные операторы имеют наивысший приоритет. Бинарные операторы одного уровня ассоциативны слева направо.
 
-## Address operators
+<a id="Arithmetic_operators"></a>
+### Арифметические операторы
 
-```go
-&p
-*x
+```text
++    sum                    integers, floats, complex values, strings
+-    difference             integers, floats, complex values
+*    product                integers, floats, complex values
+/    quotient               integers, floats, complex values
+%    remainder              integers
+
+&    bitwise AND            integers
+|    bitwise OR             integers
+^    bitwise XOR            integers
+&^   bit clear (AND NOT)    integers
+
+<<   left shift             integer << integer >= 0
+>>   right shift            integer >> integer >= 0
 ```
 
-`&x` requires addressable operand, кроме allowed composite literal exception. Dereferencing nil pointer panics.
+Если тип операнда — параметр типа, оператор должен быть допустим для каждого типа его множества; вычисление выполняется с точностью фактического аргумента типа.
 
-## Receive
+<a id="Integer_operators"></a>
+#### Целочисленные операторы
 
-```go
-v := <-ch
-v, ok := <-ch
+Для целых `x` и `y` частное `q=x/y` и остаток `r=x%y` удовлетворяют:
+
+```text
+x = q*y + r  and  |r| < |y|
 ```
 
-Nil channel receive blocks forever. Closed drained channel returns zero immediately, `ok=false`.
+частное округляется к нулю. Исключение: деление минимального отрицательного значения знакового типа на `-1` из-за переполнения даёт исходное минимальное значение и остаток 0.
 
-# Conversions
+Если делитель — константа, он не может быть нулём. Нулевой делитель во время выполнения вызывает panic.
 
-Explicit:
+<a id="Integer_overflow"></a>
+#### Целочисленное переполнение
 
-```go
-T(x)
+Операции над беззнаковыми целыми вычисляются по модулю `2^n`. Для знаковых целых `+`, `-`, `*`, `/` и `<<` могут законно переполняться; результат детерминирован представлением знаковых целых и операндами. Переполнение не вызывает runtime panic, и компилятор не вправе оптимизировать код в предположении, что переполнения не происходит.
+
+<a id="Floating_point_operators"></a>
+#### Операторы с плавающей точкой
+
+Для чисел с плавающей точкой и комплексных чисел `+x == x`, а `-x` — отрицание `x`. Результат деления на ноль не определяется спецификацией сверх требований IEEE 754; runtime panic зависит от реализации.
+
+Реализация может объединять несколько операций с плавающей точкой в одну fused-операцию, если это не устраняет явно требуемое округление. Явное преобразование к типу с плавающей точкой выполняет округление до точности целевого типа.
+
+<a id="String_concatenation"></a>
+#### Конкатенация строк
+
+Строки можно объединять операторами `+` и `+=`; результат — новая строка, содержащая последовательную конкатенацию операндов.
+
+<a id="Comparison_operators"></a>
+### Операторы сравнения
+
+```text
+==    equal
+!=    not equal
+<     less
+<=    less or equal
+>     greater
+>=    greater or equal
 ```
 
-Constants должны быть representable target.
+В любом сравнении первый операнд должен быть присваиваем типу второго либо наоборот. `==` и `!=` применимы к сравнимым типам; упорядочивающие операторы — к упорядоченным.
 
-Non-constant conversions разрешены по spec cases, включая:
+Булевы, целочисленные, с плавающей точкой, строки, указатели, каналы и некоторые интерфейсные/структурные/массивные значения сравниваются по правилам соответствующего типа. Комплексные числа поддерживают только равенство. Срезы, map и функции не сравнимы, кроме сравнения с `nil`.
 
-- assignable values;
-- identical underlying types при named/type-parameter restrictions;
-- compatible unnamed pointer underlying bases;
-- numeric conversions;
-- string ↔ `[]byte`/`[]rune`;
-- integer → string;
-- slice → array / pointer-to-array при identical element type и runtime length check;
-- type parameter set-wise convertible cases.
+Сравнение двух интерфейсных значений с одинаковым динамическим типом вызывает runtime panic, если этот динамический тип несравним.
 
-Numeric conversion overflow не сообщает error; integer truncation defined. Float→integer discards fractional part toward zero; unrepresentable floating conversions implementation-dependent where specified.
+Тип строго сравним, если он сравним и не является интерфейсом и не содержит интерфейсные компоненты; параметры типов строго сравнимы, если все типы их множества строго сравнимы.
 
-String conversions:
+<a id="Logical_operators"></a>
+### Логические операторы
 
-```go
-string([]byte{...})
-[]byte("hello")
-[]rune("日本語")
-string([]rune{...})
+```text
+&&    conditional AND    p && q  is  "if p then q else false"
+||    conditional OR     p || q  is  "if p then true else q"
+!     NOT                !p      is  "not p"
 ```
 
-Integer → string produces rune encoding, invalid Unicode values replaced `U+FFFD` according to conversion rules.
+Левый операнд вычисляется первым, правый — только если это требуется условием.
 
-Go language не имеет general pointer↔integer conversion; specialized unsafe operations — package `unsafe`.
+<a id="Address_operators"></a>
+### Операторы адресации
 
-# Constant expressions
+Для операнда `x` типа `T`, `&x` создаёт указатель `*T` на `x`. Операнд должен быть адресуемым: переменной, разыменованием указателя, индексом среза, полем адресуемой структуры или индексом адресуемого массива; исключение — допускается составной литерал.
 
-Constant expression вычисляется compile-time и содержит только constants/constant-capable operations/functions.
+Для `x` типа `*T` выражение `*x` обозначает переменную, на которую указывает `x`. Разыменование `nil` вызывает runtime panic.
 
-Untyped expression получает kind according operands; representability проверяется при conversion/assignment.
+<a id="Receive_operator"></a>
+### Оператор получения
 
-Compile-time arithmetic требует exactness, кроме explicitly rounded conversion to typed float/complex.
-
-# Order of evaluation
-
-Package initialization dependencies имеют отдельные rules. В expression/function call обычные function/method/channel communication operations evaluated lexical left-to-right order where spec defines order.
-
-Однако order некоторых subexpressions, не связанных dependency/specified sequencing, может быть unspecified. Не пишите code, correctness которого зависит от order map iteration или unspecified operand interactions.
-
-# Statements
-
-## Terminating statements
-
-Spec определяет statements, которые гарантированно terminate block: `return`, `goto` under conditions, panic call, infinite for without reachable break, exhaustive terminating switch/select conditions и др. Это используется compile-time missing-return checks.
-
-## Empty / labeled
+Для канала `ch` выражение `<-ch` получает значение из канала. Направление должно разрешать receive. Операция блокируется до доступности значения; получение из `nil`-канала блокируется навсегда. После закрытия и исчерпания ранее отправленных значений получение немедленно возвращает нулевое значение типа элемента.
 
 ```go
-Label:
-    statement
+v1 := <-ch
+v2 = <-ch
+f(<-ch)
+<-strobe
 ```
 
-Label scope = body containing function; labels distinct from ordinary identifiers.
+Многорезультатная форма возвращает дополнительный bool, равный `true` для успешно отправленного значения и `false` для нулевого значения из закрытого и пустого канала.
 
-## Expression statements
+<a id="Conversions"></a>
+### Преобразования
 
-Function/method calls и receive operations могут быть statements. Некоторые built-ins ограничены: например `append` result нельзя просто discard как arbitrary call where grammar/semantics forbids.
+Явное преобразование имеет форму `T(x)`, где `T` — тип, а `x` — выражение, которое можно преобразовать к `T`.
 
-## Send
-
-```go
-ch <- value
+```text
+Conversion = Type "(" Expression [ "," ] ")" .
 ```
 
-Channel must permit send; send to nil blocks forever; send on closed channel panics.
+Константа может быть преобразована к `T`, если представима `T`. Неконстантное значение можно преобразовать в случаях, перечисленных спецификацией: при присваиваемости, идентичных базовых типах с учётом ограничений именованных типов, совместимых безымянных указателях, между числовыми типами, между строкой и срезами байтов/рун, из целого в строку, а также из среза в массив или указатель на массив с идентичным типом элементов и достаточной длиной.
 
-## Inc/dec
+Если участвуют параметры типов, преобразование должно быть допустимо для соответствующих комбинаций типов в множествах типов.
 
-```go
-x++
-x--
+<a id="Conversions_to_and_from_a_string_type"></a>
+#### Преобразования в строковый тип и из него
+
+`[]byte` в строку создаёт строку из последовательных байтов; `[]rune` в строку — конкатенацию UTF-8-представлений рун. Строка в `[]byte` или `[]rune` создаёт ненулевой срез соответствующих байтов или кодовых точек. Историческое преобразование целого к строке создаёт UTF-8-представление Unicode code point; недопустимые значения преобразуются в `"\uFFFD"`.
+
+<a id="Conversions_from_slice_to_array_or_array_pointer"></a>
+#### Преобразования среза в массив или указатель на массив
+
+Преобразование среза в массив создаёт массив из элементов базового массива среза; преобразование в указатель на массив создаёт указатель на базовый массив. Если длина среза меньше длины массива, возникает runtime panic.
+
+<a id="Constant_expressions"></a>
+### Константные выражения
+
+Константные выражения содержат только константные операнды и вычисляются во время компиляции. Нетипизированные булевы, числовые и строковые константы могут использоваться там, где допустим соответствующий вид операнда.
+
+Константные выражения вычисляются точно; промежуточные значения могут требовать существенно большей точности, чем любой предопределённый тип. Значения типизированных констант всегда должны быть точно представимы их типом.
+
+<a id="Order_of_evaluation"></a>
+### Порядок вычислений
+
+На уровне пакета зависимости инициализации определяют порядок вычисления выражений инициализации. В остальных случаях вызовы функций и методов, receive-операции и бинарные логические операции в операндах выражения, присваивания или return вычисляются в лексическом порядке слева направо.
+
+Относительный порядок других подвыражений может быть не определён, кроме требований лексического порядка и зависимостей.
+
+<a id="Statements"></a>
+## Операторы
+
+```text
+Statement  = Declaration | LabeledStmt | SimpleStmt |
+             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
+             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
+             DeferStmt .
+
+SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
 ```
 
-Statements, не expressions.
+<a id="Terminating_statements"></a>
+### Завершающие операторы
 
-## Assignment
+Завершающий оператор прерывает обычный поток управления в блоке. Завершающими являются `return`, `goto`, вызов встроенной `panic`, блок с завершающим последним оператором, `if` с `else`, где обе ветви завершаются, некоторые бесконечные `for`, исчерпывающие `switch` и `select` без соответствующих `break`, а также labeled statement, метящий завершающий оператор, согласно точным условиям спецификации.
 
-```go
-x = y
-a, b = b, a
-x += y
+<a id="Empty_statements"></a>
+### Пустые операторы
+
+```text
+EmptyStmt = .
 ```
 
-Multi-assignment сначала evaluates left operands addresses/indexing and right expressions в specified order, затем performs assignments left-to-right.
+Пустой оператор ничего не делает.
 
-Assignment copies value stored in variable; references внутри slice/map/interface/etc. остаются references, underlying data не deep-copied.
+<a id="Labeled_statements"></a>
+### Операторы с метками
 
-## `if`
-
-```go
-if init; condition {
-} else {
-}
+```text
+LabeledStmt = Label ":" Statement .
+Label       = identifier .
 ```
 
-Condition boolean; optional simple statement has scope across condition/branches per block rules.
+Оператор с меткой может быть целью `goto`, `break` или `continue`.
 
-## `switch`
+<a id="Expression_statements"></a>
+### Операторы-выражения
 
-### Expression switch
+В контексте оператора могут появляться вызовы функций и методов и receive-операции, кроме специально ограниченных встроенных функций.
 
-Cases evaluated left-to-right/top-to-bottom; first equal match executes. No implicit fallthrough.
+<a id="Send_statements"></a>
+### Операторы отправки
 
-```go
-switch x := f(); {
-case x < 0:
-    return -x
-default:
-    return x
-}
+```text
+SendStmt = Channel "<-" Expression .
+Channel  = Expression .
 ```
 
-Empty switch expression = `true`.
+Оба выражения вычисляются до начала коммуникации. Отправка в `nil`-канал блокируется навсегда; отправка в закрытый канал вызывает runtime panic. Для параметра типа все типы множества должны быть каналами с разрешённой отправкой и идентичным типом элемента.
 
-`fallthrough` only final non-empty statement non-final expression case.
+<a id="IncDec_statements"></a>
+### Операторы инкремента и декремента
 
-### Type switch
-
-```go
-switch v := x.(type) {
-case nil:
-case int:
-case string:
-default:
-}
+```text
+IncDecStmt = Expression ( "++" | "--" ) .
 ```
 
-Guard operand interface, not type parameter. Single-type case variable gets that type; multi-type/default gets guard expression interface type.
+`x++` и `x--` — операторы, а не выражения, и семантически эквивалентны `x += 1` и `x -= 1`.
 
-Generic type/type parameter может appear case; после instantiation duplicates выбираются first matching case.
+<a id="Assignment_statements"></a>
+### Операторы присваивания
 
-No `fallthrough`.
-
-## `for`
-
-Три forms:
-
-```go
-for condition {}
-for init; condition; post {}
-for {}
+```text
+Assignment = ExpressionList assign_op ExpressionList .
+assign_op  = [ add_op | mul_op ] "=" .
 ```
 
-Начиная с Go 1.22 each iteration classic `for` имеет separate iteration variables, созданные/initialized according to spec; это устраняет historical closure-capture behavior для modern language version.
+Левый операнд должен быть адресуем, быть индексом map либо, для `=`, пустым идентификатором. Tuple assignment присваивает отдельные элементы многорезультатной операции или соответствующие значения списка выражений.
 
-### `range`
+Присваивание выполняется в две фазы: сначала вычисляются операнды индексных выражений и разыменований слева и все выражения справа в обычном порядке, затем сами присваивания выполняются слева направо.
 
-`range` поддерживает operands:
+<a id="If_statements"></a>
+### Операторы `if`
 
-- array / pointer to array;
-- slice;
-- string;
-- map;
-- channel;
-- integer values (Go 1.22+);
-- iterator functions supported current spec (Go 1.23+ range-over-function forms).
-
-Количество iteration values зависит operand.
-
-#### Arrays/slices
-
-```go
-for i, v := range a {}
+```text
+IfStmt = "if" [ SimpleStmt ";" ] Expression Block [ "else" ( IfStmt | Block ) ] .
 ```
 
-index 0..len-1; value copy element.
+Условие должно быть булевым. Необязательный simple statement выполняется перед вычислением условия.
 
-#### String
+<a id="Switch_statements"></a>
+### Операторы `switch`
 
-index = byte offset UTF-8 rune; value = rune. Invalid encoding → `U+FFFD`, advances one byte.
-
-#### Map
-
-Iteration order **not specified** and can differ each iteration. Entries inserted/deleted during iteration имеют spec-defined inclusion uncertainty/omission rules; не полагайтесь на order.
-
-#### Channel
-
-```go
-for v := range ch {}
+```text
+SwitchStmt = ExprSwitchStmt | TypeSwitchStmt .
 ```
 
-receives until channel closed/drained. Nil channel range blocks forever.
+<a id="Expression_switches"></a>
+#### Switch по выражению
 
-#### Integer
+Выражение switch вычисляется один раз. Case-выражения вычисляются слева направо и сверху вниз; выполняется первый совпавший case. Если совпадений нет, выполняется `default`, если он есть. Отсутствующее выражение switch эквивалентно `true`.
 
-```go
-for i := range n {}
+`fallthrough` разрешён только как последний непустой оператор всех, кроме последнего, case выражения.
+
+<a id="Type_switches"></a>
+#### Switch по типу
+
+Type switch сравнивает типы, а не значения, и имеет специальную guard-форму `x.(type)`. `x` должен иметь интерфейсный тип, но не быть параметром типа.
+
+```text
+TypeSwitchStmt  = "switch" [ SimpleStmt ";" ] TypeSwitchGuard "{" { TypeCaseClause } "}" .
+TypeSwitchGuard = [ identifier ":=" ] PrimaryExpr "." "(" "type" ")" .
+TypeCaseClause  = TypeSwitchCase ":" StatementList .
+TypeSwitchCase  = "case" TypeList | "default" .
 ```
 
-итерации от 0 до `n-1`; if `n <= 0` no iterations, type rules зависят declared iteration variable/type context.
+Параметр типа или обобщённый тип может использоваться как тип case; если после инстанцирования он дублирует другой case, выбирается первый совпавший case. `fallthrough` в type switch запрещён.
 
-#### Function iterator
+<a id="For_statements"></a>
+### Операторы `for`
 
-Current Go поддерживает range over functions определённых signatures (yield callbacks). Loop body управляет continuation через generated `yield` function; `break`/return stop iteration. Iterator implementation обязана уважать boolean result yield и не продолжать yield после false.
-
-## `go`
-
-```go
-go f(args)
+```text
+ForStmt   = "for" [ Condition | ForClause | RangeClause ] Block .
+Condition = Expression .
 ```
 
-Function value/arguments evaluated в calling goroutine, actual call starts independent goroutine. Result values discard; built-in call restrictions apply.
+<a id="For_condition"></a>
+#### `for` с одним условием
 
-## `select`
+Блок выполняется, пока булево условие истинно. Условие проверяется перед каждой итерацией. Отсутствующее условие эквивалентно `true`.
 
-```go
-select {
-case v := <-ch:
-case out <- x:
-default:
-}
+<a id="For_clause"></a>
+#### `for` с ForClause
+
+```text
+ForClause = [ InitStmt ] ";" [ Condition ] ";" [ PostStmt ] .
+InitStmt  = SimpleStmt .
+PostStmt  = SimpleStmt .
 ```
 
-Execution:
+Init выполняется один раз до первой проверки, post — после каждой выполненной итерации. Начиная с Go 1.22 каждая итерация имеет собственную объявленную переменную или набор переменных; переменная первой итерации объявляется init-оператором, а каждой последующей — неявно перед post и инициализируется текущим значением переменной предыдущей итерации.
 
-1. channel operands и send RHS evaluated once in source order;
-2. если one/more communications can proceed, один выбирается pseudo-random uniformly among ready cases;
-3. если none ready и default есть — default;
-4. если none ready и no default — block;
-5. execute selected communication и statements.
+<a id="For_range"></a>
+#### `for` с range
 
-`select {}` blocks forever.
-
-## `return`
-
-Return завершает function и возвращает result values. Named results могут быть returned bare.
-
-Bare return запрещён/ambiguous, если result identifier shadowed в scope, где compiler не может однозначно выполнить semantics.
-
-## `break` / `continue`
-
-`break` завершает innermost `for`, `switch`, `select`; label может target enclosing one.
-
-`continue` начинает next iteration enclosing `for`; label должен обозначать enclosing `for`.
-
-## `goto`
-
-`goto Label` остаётся внутри same function и не может перепрыгнуть так, чтобы новые variables внезапно вошли scope без initialization, либо прыгнуть извне внутрь nested block.
-
-## `fallthrough`
-
-Только expression switch, final statement non-last case; не выполняет следующую case condition, просто переходит к statements следующего clause.
-
-## `defer`
-
-```go
-defer f(args)
+```text
+RangeClause = [ ExpressionList "=" | IdentifierList ":=" ] "range" Expression .
 ```
 
-Function value и args evaluated сразу при execution `defer`; call выполняется при возврате surrounding function/panic unwinding.
+Range может перебирать массив, указатель на массив, срез, строку, map, канал, целочисленное значение или функцию-итератор допустимой сигнатуры. Число переменных итерации зависит от вида выражения.
 
-Deferred calls выполняются reverse order. Они выполняются после установки result parameters `return`, но до actual return caller.
+Для массива/среза первым значением является индекс, вторым — элемент; для строки — байтовый индекс UTF-8 и rune; для map — ключ и значение; для канала — полученный элемент; для целого `n` — значения от 0 до `n-1`; для iterator-функции значения поступают через синтезированную `yield`-функцию.
 
-Deferred function может read/modify named results.
+Порядок обхода map не определён. Удалённая до достижения запись не производится; добавленная во время обхода запись может быть произведена или пропущена.
 
-Nil deferred function value panics в момент invocation, не в момент `defer`.
+Для iterator-функции range вызывает `f` с новой `yield`-функцией. Вызовы `yield` дают значения очередной итерации. Пока тело цикла не завершается, `yield` возвращает `true`; если тело завершает обход, `yield` возвращает `false` и больше вызываться не должна.
 
-# Built-in functions
+<a id="Go_statements"></a>
+### Операторы `go`
 
-Built-ins predeclared, но не являются ordinary first-class function values.
-
-## `append`
-
-```go
-s = append(s, elems...)
+```text
+GoStmt = "go" Expression .
 ```
 
-Если capacity недостаточна, allocates new underlying array; иначе reuses current. Special case:
+Выражение должно быть вызовом функции или метода и не может быть заключено в скобки. Значение функции и аргументы вычисляются в вызывающей goroutine, после чего функция начинает выполняться независимо в новой goroutine. Результаты вызова отбрасываются.
 
-```go
-bytes = append(bytes, "text"...)
+<a id="Select_statements"></a>
+### Операторы `select`
+
+```text
+SelectStmt = "select" "{" { CommClause } "}" .
+CommClause = CommCase ":" StatementList .
+CommCase   = "case" ( SendStmt | RecvStmt ) | "default" .
+RecvStmt   = [ ExpressionList "=" | IdentifierList ":=" ] RecvExpr .
+RecvExpr   = Expression .
 ```
 
-## `copy`
+При входе в `select` канальные операнды receive и каналы/RHS send вычисляются ровно один раз в порядке исходного текста. Если готово несколько коммуникаций, одна выбирается равномерным псевдослучайным выбором. Если ни одна не готова и есть `default`, выбирается он; иначе `select` блокируется. `select {}` блокируется навсегда.
 
-```go
-n := copy(dst, src)
-n := copy(dstBytes, "string")
+<a id="Return_statements"></a>
+### Операторы `return`
+
+```text
+ReturnStmt = "return" [ ExpressionList ] .
 ```
 
-Copies `min(len(src), len(dst))`, overlaps allowed.
+`return` завершает функцию и при необходимости предоставляет результаты. Отложенные вызовы выполняются до фактического возврата вызывающей стороне. Функция без результатов не может возвращать значения. Результаты можно перечислить явно, получить из одного многорезультатного вызова или, при именованных результатах, использовать пустой список.
 
-## `clear`
+<a id="Break_statements"></a>
+### Операторы `break`
 
-Go 1.21+:
-
-```go
-clear(m) // delete all map entries
-clear(s) // zero all slice elements up to len
+```text
+BreakStmt = "break" [ Label ] .
 ```
 
-Nil no-op. Type parameters allowed when type set suitable maps/slices.
+`break` завершает ближайший `for`, `switch` или `select` той же функции; метка может выбрать соответствующий охватывающий оператор.
 
-## `close`
+<a id="Continue_statements"></a>
+### Операторы `continue`
 
-```go
-close(ch)
+```text
+ContinueStmt = "continue" [ Label ] .
 ```
 
-Marks no more sends. Closing nil/already closed channel panics. Send closed panics. Receive drains buffered values then yields zero immediately.
+`continue` начинает следующую итерацию ближайшего охватывающего `for`. Метка, если есть, должна обозначать охватывающий `for`.
 
-## `complex`, `real`, `imag`
+<a id="Goto_statements"></a>
+### Операторы `goto`
 
-Construct/extract complex values; typed/untyped rules follow operand types. Type-parameter operands not permitted where spec says.
-
-## `delete`
-
-```go
-delete(m, key)
+```text
+GotoStmt = "goto" Label .
 ```
 
-No-op для missing key/nil map; key assignable map key type.
+`goto` передаёт управление оператору с соответствующей меткой в той же функции. Переход не может приводить к вхождению в область видимости переменных, которые не были в области видимости в точке `goto`, и не может прыгать извне блока на метку внутри этого блока.
 
-## `len`, `cap`
+<a id="Fallthrough_statements"></a>
+### Операторы `fallthrough`
 
-`len` applies strings, arrays/*arrays, slices, maps, channels and supported type parameters.
-
-`cap` applies arrays/*arrays, slices, channels and supported type parameters.
-
-Некоторые `len/cap` calls compile-time constants для arrays/string constants when operand has no channel receive/non-constant function calls and size fixed according spec.
-
-## Allocation: `new`
-
-Modern Go supports:
-
-```go
-p := new(T)
+```text
+FallthroughStmt = "fallthrough" .
 ```
 
-→ pointer to zero `T`.
+`fallthrough` передаёт управление первому оператору следующего case в expression switch и может использоваться только как последний непустой оператор такого case.
 
-Начиная с Go 1.26 `new` также может принимать value expression:
+<a id="Defer_statements"></a>
+### Операторы `defer`
 
-```go
-p := new(int64(300))
+```text
+DeferStmt = "defer" Expression .
 ```
 
-→ pointer to newly allocated variable initialized provided value. Exact typing follows current built-in specification.
+Выражение должно быть вызовом функции или метода. При каждом выполнении `defer` значение функции и аргументы вычисляются и сохраняются сразу, но сам вызов откладывается до возврата окружающей функции или panic-unwinding. Отложенные функции выполняются в обратном порядке. При явном `return` они выполняются после установки результатов, но до фактического возврата вызывающей стороне.
 
-## `make`
+Если отложенное значение функции равно `nil`, panic происходит при попытке вызвать функцию, а не при выполнении `defer`.
 
-```go
-make([]T, len, cap)
-make(map[K]V, hint)
-make(chan T, cap)
+<a id="Built-in_functions"></a>
+## Встроенные функции
+
+Встроенные функции предопределены. Они вызываются подобно обычным функциям, но некоторые принимают тип вместо выражения как первый аргумент. Они не имеют стандартных Go-типов и потому могут использоваться только в call expressions, а не как значения функций.
+
+<a id="Appending_and_copying_slices"></a>
+### Добавление и копирование срезов
+
+`append` добавляет значения к срезу и возвращает результирующий срез того же типа. Если ёмкости недостаточно, выделяется новый базовый массив; иначе используется существующий. Специальная форма позволяет добавлять байты строки к `[]byte`.
+
+`copy` копирует элементы из source-среза в destination и возвращает число скопированных элементов — минимум длин source и destination. Перекрытие памяти допустимо. Специальная форма копирует байты строки в `[]byte`.
+
+<a id="Clear"></a>
+### `clear`
+
+`clear` принимает map, срез или подходящий параметр типа. Для map удаляются все элементы; для среза все элементы до длины устанавливаются в нулевое значение. Для `nil` map или среза операция ничего не делает.
+
+<a id="Close"></a>
+### `close`
+
+`close(ch)` фиксирует, что в канал больше не будут отправляться значения. Закрытие receive-only канала недопустимо. Отправка в закрытый канал, повторное закрытие или закрытие `nil`-канала вызывает runtime panic. После закрытия и получения ранее отправленных значений receive немедленно возвращает нулевое значение.
+
+<a id="Complex_numbers"></a>
+### Работа с комплексными числами
+
+`complex` строит комплексное значение из действительной и мнимой частей; `real` и `imag` извлекают их. Типы аргументов и результата согласованы: `float32` соответствует `complex64`, `float64` — `complex128`. Нетипизированные константные аргументы подчиняются правилам констант. Аргументы-параметры типов не допускаются.
+
+<a id="Deletion_of_map_elements"></a>
+### Удаление элементов map
+
+`delete(m, k)` удаляет элемент с ключом `k`; тип `k` должен быть присваиваем типу ключа. Для `nil` map или отсутствующего ключа это no-op. Если `m` — параметр типа, все типы его множества должны быть map с идентичным типом ключа.
+
+<a id="Length_and_capacity"></a>
+### Длина и ёмкость
+
+`len` и `cap` возвращают `int`. `len` применим к строкам, массивам, указателям на массивы, срезам, map и каналам; `cap` — к массивам, указателям на массивы, срезам и каналам. Для подходящих параметров типов вызов должен быть допустим для каждого типа множества.
+
+Для среза всегда `0 <= len(s) <= cap(s)`. Длина `nil` среза, map или канала равна 0; ёмкость `nil` среза или канала равна 0.
+
+При строковой константе `len` — константа. Для массива или указателя на массив `len` и `cap` также могут быть константами, если выражение не содержит receive и неконстантных вызовов функций; тогда операнд не вычисляется.
+
+<a id="Making_slices_maps_and_channels"></a>
+### Создание срезов, map и каналов
+
+`make` принимает тип среза, map, канала или подходящий параметр типа и возвращает значение именно этого типа, а не указатель.
+
+```text
+make(T, n)       slice             slice of type T with length n and capacity n
+make(T, n, m)    slice             slice of type T with length n and capacity m
+make(T)          map               map of type T
+make(T, n)       map               map with initial space for approximately n elements
+make(T)          channel           unbuffered channel
+make(T, n)       channel           buffered channel, buffer size n
 ```
 
-Initializes slice/map/channel runtime value. `make` returns `T`, not `*T`.
+Размеры должны быть целыми либо нетипизированными константами, представимыми `int`. Константные размеры неотрицательны; для среза `len <= cap`. Нарушения динамических ограничений во время выполнения вызывают panic.
 
-Invalid negative/too-large runtime sizes panic; constants validated compile-time.
+<a id="Min_and_max"></a>
+### `min` и `max`
 
-## `min` / `max`
+`min` и `max` вычисляют соответственно наименьшее и наибольшее значение фиксированного числа аргументов упорядоченных типов. Нужен как минимум один аргумент. Применяются те же правила типов, что для операторов; если все аргументы константы, результат также константа.
 
-Predeclared Go 1.21+:
+Для отрицательного нуля, бесконечностей и NaN действуют специальные правила: `-0.0` меньше `+0.0`, `-Inf` меньше любого другого числа, `+Inf` больше любого другого числа, а наличие NaN даёт NaN.
 
-```go
-min(x, y, ...)
-max(x, y, ...)
+<a id="Allocation"></a>
+### Выделение памяти
+
+Встроенная функция `new` создаёт новую инициализированную переменную и возвращает указатель на неё. Она принимает один аргумент, который может быть типом или выражением.
+
+Если аргумент — тип `T`, `new(T)` выделяет переменную типа `T`, инициализированную нулевым значением.
+
+Если аргумент — выражение `x`, `new(x)` выделяет переменную типа `x`, инициализированную значением `x`. Если это нетипизированная константа, она сначала неявно преобразуется к типу по умолчанию; нетипизированное булево значение — к `bool`. `nil` нельзя использовать аргументом `new`.
+
+Например, `new(int)` и `new(123)` возвращают указатель на новую переменную `int`; первая содержит 0, вторая 123.
+
+<a id="Handling_panics"></a>
+### Обработка panic
+
+`panic` и `recover` помогают сообщать и обрабатывать runtime panic и определённые программой ошибки.
+
+```text
+func panic(interface{})
+func recover() interface{}
 ```
 
-Arguments ordered types or untyped constants with rules spec. Для floating NaN/signed-zero behavior следует exact built-in rules current spec; не используйте их как total-order NaN sanitizer.
+`panic` или runtime panic прекращают обычное выполнение функции, после чего выполняются её deferred-функции, затем deferred-функции вызывающих функций и так далее до верхнего уровня goroutine; если panic не восстановлен, программа завершается и сообщает условие ошибки.
 
-## `panic` / `recover`
+Если функция `G` откладывает `D`, которая напрямую вызывает `recover`, и panic происходит в той же goroutine во время выполнения `G`, `recover` возвращает значение, переданное `panic`, и при нормальном завершении `D` останавливает panicking sequence. `recover` возвращает `nil`, если goroutine не находится в panic или `recover` не вызван напрямую отложенной функцией.
 
-`panic(v)` starts panicking sequence current goroutine, runs deferred calls while unwinding.
+<a id="Bootstrapping"></a>
+### Bootstrapping
 
-`recover()` stops panicking only when called **directly** by deferred function during panic of same goroutine according exact spec conditions; otherwise returns nil.
+Текущие реализации предоставляют встроенные `print` и `println` для bootstrapping. Они документированы для полноты, но не гарантируются как постоянная часть языка. `print` печатает аргументы с реализационно-зависимым форматированием; `println` дополнительно разделяет аргументы пробелами и завершает строку переводом строки.
 
-`panic(nil)` modern runtime behavior governed language/runtime compatibility settings; see [[godebug|GODEBUG]].
+<a id="Packages"></a>
+## Пакеты
 
-## `print` / `println`
+Программы Go строятся связыванием пакетов. Пакет, в свою очередь, состоит из одного или более исходных файлов, совместно объявляющих константы, типы, переменные и функции пакета. Экспортируемые элементы могут использоваться другими пакетами.
 
-Implementation-specific bootstrapping/debug functions; output format not specified. Не используйте application logging API вместо `fmt`/`log`.
+<a id="Source_file_organization"></a>
+### Организация исходных файлов
 
-# Packages
-
-Source file:
-
-```go
-package math
+```text
+SourceFile = PackageClause ";" { ImportDecl ";" } { TopLevelDecl ";" } .
 ```
 
-Package name not necessarily final path component but conventionally совпадает.
+Каждый файл начинается с package clause, затем содержит, возможно пустой, набор import declarations и далее объявления функций, типов, переменных и констант.
 
-## Imports
+<a id="Package_clause"></a>
+### Определение пакета
+
+```text
+PackageClause = "package" PackageName .
+PackageName   = identifier .
+```
+
+Имя пакета не может быть пустым идентификатором. Набор файлов с одинаковым PackageName образует реализацию пакета; реализация может требовать, чтобы все файлы пакета находились в одной директории.
+
+<a id="Import_declarations"></a>
+### Объявления import
+
+```text
+ImportDecl = "import" ( ImportSpec | "(" { ImportSpec ";" } ")" ) .
+ImportSpec = [ "." | PackageName ] ImportPath .
+ImportPath = string_lit .
+```
+
+Имя пакета используется в квалифицированных идентификаторах и объявляется в file block. Если имя опущено, используется имя из package clause импортированного пакета. Точка импортирует экспортированные идентификаторы непосредственно в file block. Интерпретация пути импорта зависит от реализации.
+
+Пакет не может импортировать сам себя прямо или косвенно. Чтобы импортировать пакет только ради побочных эффектов инициализации, используют пустой идентификатор:
 
 ```go
-import "lib/math"
-import m "lib/math"
-import . "lib/math"
 import _ "lib/math"
 ```
 
-- default local package name = declared package name;
-- explicit alias changes qualifier;
-- dot-import imports exported identifiers directly into file block;
-- blank import imports only side effects initialization.
+<a id="An_example_package"></a>
+### Пример пакета
 
-Import declaration scope file-local. Import cycles запрещены.
-
-# Program initialization и execution
-
-## Package initialization
-
-Package-level variables initialize dependency order.
-
-Variable `x` depends on `y`, если initializer/body referenced function/method transitively references `y` under spec rules.
-
-Earliest declaration-ready variable initializes first; multi-value declaration group initializes together.
-
-После variables вызываются все:
-
-```go
-func init() {}
-```
-
-в source presentation order. `init` нельзя reference/call explicitly как normal identifier.
-
-Package initialization sequential inside single initialization goroutine. `init` может launch goroutines, но next `init` вызывается только после return previous.
-
-## Program initialization
-
-Imported packages initialize before importer, each package once. Complete dependency graph has no import cycle.
-
-## `main`
-
-Executable содержит unimported package:
+Полный пример concurrent prime sieve:
 
 ```go
 package main
 
-func main() {}
-```
+import "fmt"
 
-`main` no args/results.
+// Send the sequence 2, 3, 4, … to channel 'ch'.
+func generate(ch chan<- int) {
+	for i := 2; ; i++ {
+		ch <- i  // Send 'i' to channel 'ch'.
+	}
+}
 
-Execution:
+// Copy the values from channel 'src' to channel 'dst',
+// removing those divisible by 'prime'.
+func filter(src <-chan int, dst chan<- int, prime int) {
+	for i := range src {  // Loop over values received from 'src'.
+		if i%prime != 0 {
+			dst <- i  // Send 'i' to channel 'dst'.
+		}
+	}
+}
 
-1. initialize program packages;
-2. call `main.main`;
-3. когда `main` returns — process exits, не ожидая остальные goroutines автоматически.
+// The prime sieve: Daisy-chain filter processes together.
+func sieve() {
+	ch := make(chan int)  // Create a new channel.
+	go generate(ch)       // Start generate() as a subprocess.
+	for {
+		prime := <-ch
+		fmt.Print(prime, "\n")
+		ch1 := make(chan int)
+		go filter(ch, ch1, prime)
+		ch = ch1
+	}
+}
 
-# Errors
-
-Predeclared:
-
-```go
-type error interface {
-    Error() string
+func main() {
+	sieve()
 }
 ```
 
-Convention: `nil` error = no error.
+<a id="Program_initialization_and_execution"></a>
+## Инициализация и выполнение программы
 
-# Run-time panics
+<a id="The_zero_value"></a>
+### Нулевое значение
 
-Invalid runtime operations (out-of-bounds, nil dereference, send closed channel и т. п.) trigger panic equivalent semantics с implementation-defined `runtime.Error` implementing `error`.
+Когда для переменной выделяется память через объявление или `new`, либо создаётся новое значение через составной литерал или `make`, и явной инициализации нет, каждому элементу присваивается нулевое значение типа: `false` для bool, `0` для чисел, `""` для строк, `nil` для указателей, функций, интерфейсов, срезов, каналов и map. Инициализация рекурсивна.
 
-Specific runtime error values не стандартизированы language spec.
+<a id="Package_initialization"></a>
+### Инициализация пакета
 
-# System considerations
+На уровне пакета переменные инициализируются пошагово. На каждом шаге выбирается самая ранняя в порядке объявлений ещё не инициализированная переменная, готовая к инициализации — не имеющая выражения инициализации либо не зависящая от неинициализированных переменных.
 
-## Package `unsafe`
+Если после завершения процесса остаются неинициализированные переменные, они участвуют в цикле инициализации и программа недопустима. Несколько переменных слева от одного многорезультатного выражения инициализируются вместе.
 
-`unsafe` позволяет operations вне type-system safety и portability. Любой такой code требует manual review.
+Зависимость определяется лексическими ссылками транзитивно через тела функций и методов текущего пакета. Порядок файлов определяется порядком, в котором файлы передаются компилятору; для воспроизводимости рекомендуется лексический порядок имён файлов.
 
-Ключевые APIs current spec:
+После переменных вызываются все функции `init` в порядке исходного текста. Можно объявить несколько `init`; сам идентификатор `init` не объявляется и такие функции нельзя вызывать напрямую.
+
+<a id="Program_initialization"></a>
+### Инициализация программы
+
+Пакеты полной программы инициализируются по одному. Импортированные пакеты инициализируются до импортирующего и только один раз. Среди всех пакетов, отсортированных по пути импорта, на каждом шаге выбирается первый неинициализированный пакет, все импорты которого уже инициализированы.
+
+Инициализация пакетов выполняется последовательно в одной goroutine. `init` может запускать другие goroutine, но следующая `init` не вызывается, пока предыдущая не вернулась.
+
+<a id="Program_execution"></a>
+### Выполнение программы
+
+Полная программа создаётся связыванием одного неимпортируемого пакета `main` со всеми транзитивными зависимостями. Пакет должен называться `main` и объявлять функцию без аргументов и результатов:
 
 ```go
+func main() { … }
+```
+
+Выполнение начинается с инициализации программы, затем вызывается `main.main`. Когда этот вызов возвращается, программа завершается, не ожидая завершения остальных goroutine.
+
+<a id="Errors"></a>
+## Ошибки
+
+Предопределённый тип `error` определяется как:
+
+```go
+type error interface {
+	Error() string
+}
+```
+
+Это общепринятый интерфейс для представления ошибочного состояния; `nil` означает отсутствие ошибки.
+
+<a id="Run_time_panics"></a>
+## Panic во время выполнения
+
+Ошибки выполнения, например индексирование массива за границами, запускают runtime panic, эквивалентный вызову `panic` со значением реализационно-зависимого интерфейсного типа `runtime.Error`. Этот тип удовлетворяет предопределённому интерфейсу `error`. Точные значения, представляющие различные runtime errors, не определены спецификацией.
+
+```go
+package runtime
+
+type Error interface {
+	error
+	// and perhaps other methods
+}
+```
+
+<a id="System_considerations"></a>
+## Системные аспекты
+
+<a id="Package_unsafe"></a>
+### Пакет `unsafe`
+
+Встроенный пакет `unsafe`, известный компилятору и доступный через путь импорта `"unsafe"`, предоставляет средства низкоуровневого программирования, в том числе операции, нарушающие систему типов. Пакет, использующий `unsafe`, необходимо вручную проверять на безопасность типов; такой код может быть непереносим.
+
+```go
+package unsafe
+
+type ArbitraryType int
 type Pointer *ArbitraryType
 
 func Alignof(variable ArbitraryType) uintptr
 func Offsetof(selector ArbitraryType) uintptr
 func Sizeof(variable ArbitraryType) uintptr
+
+type IntegerType int
 func Add(ptr Pointer, len IntegerType) Pointer
 func Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
 func SliceData(slice []ArbitraryType) *ArbitraryType
@@ -1548,52 +2116,127 @@ func String(ptr *byte, len IntegerType) string
 func StringData(str string) *byte
 ```
 
-### `unsafe.Pointer`
+`Pointer` — указательный тип, но значение `Pointer` нельзя разыменовать. Любой указатель или значение с базовым типом `uintptr` можно преобразовать к типу с базовым типом `Pointer` и обратно; эффект преобразований определяется реализацией и подчиняется документированным правилам допустимого использования `unsafe.Pointer`.
 
-Поддерживает restricted conversions между arbitrary pointer types и `uintptr` patterns. Не является license на arbitrary pointer arithmetic; valid patterns documented package `unsafe`.
+`Alignof` и `Sizeof` возвращают выравнивание и размер гипотетической переменной; `Offsetof(s.f)` возвращает смещение поля `f` относительно адреса структуры. Для встроенного поля путь не должен требовать разыменования указателя.
 
-GC не обязан рассматривать naked `uintptr` как pointer root. Сохранение address как integer через GC/safepoint может нарушить liveness.
+`Add` возвращает `unsafe.Pointer(uintptr(ptr) + uintptr(len))`; `Slice` строит срез, базовый массив которого начинается в `ptr`, а длина и ёмкость равны `len`; `SliceData`, `String` и `StringData` предоставляют операции доступа к базовым данным с описанными в спецификации nil/empty и lifetime-ограничениями.
 
-### `Sizeof`, `Alignof`, `Offsetof`
+<a id="Size_and_alignment_guarantees"></a>
+### Гарантии размера и выравнивания
 
-Возвращают implementation layout properties. Для constant-size operands calls являются constant expressions `uintptr`.
+Для числовых типов гарантируются размеры:
 
-`Offsetof(s.f)` требует selector reachability без forbidden pointer traversals.
+```text
+type                                 size in bytes
 
-### `unsafe.Add`
-
-```go
-unsafe.Add(ptr, n)
+byte, uint8, int8                     1
+uint16, int16                         2
+uint32, int32, float32                4
+uint64, int64, float64, complex64     8
+complex128                           16
 ```
 
-Equivalent conceptual pointer-byte offset с restricted valid-pointer rules.
+Минимальные гарантии выравнивания:
 
-### `unsafe.Slice`
+1. для переменной `x` любого типа `unsafe.Alignof(x) >= 1`;
+2. для структуры выравнивание равно максимуму выравниваний её полей, но не меньше 1;
+3. для массива выравнивание совпадает с выравниванием типа элемента.
 
-Создаёт slice на memory starting `ptr`, length/cap `len`; invalid nil/nonzero/negative combinations panic.
+Структура или массив имеют нулевой размер, если не содержат полей или элементов ненулевого размера. Две различные переменные нулевого размера могут иметь один адрес в памяти.
 
-### `SliceData`, `StringData`
+<a id="Appendix"></a>
+## Приложение
 
-Expose pointers underlying slice/string с documented nil/empty special cases. Lifetime/read-only rules must be respected; modifying string bytes через unsafe violates string immutability assumptions and может corrupt program.
+<a id="Language_versions"></a>
+### Версии языка
 
-# Size and alignment guarantees
+Гарантия совместимости Go 1 обеспечивает, что программы, написанные для определённой версии языка Go, продолжают компилироваться и выполняться корректно в последующих версиях в рамках гарантии совместимости.
 
-Implementation определяет concrete sizes для many types в рамках minimum guarantees. Для arrays/structs size включает element/field alignment/padding.
+Ниже перечислены минимальные версии для возможностей, добавленных после Go 1.
 
-For struct fields:
+<a id="Go_1.9"></a>
+#### Go 1.9
 
-- non-zero-size field alignment учитывается;
-- zero-size final field может потребовать padding, чтобы pointer на it не совпал с address immediately after struct storage;
-- exact layout architecture/compiler-specific, используйте `unsafe.Sizeof/Alignof/Offsetof` только для low-level code.
+- Объявление псевдонима может объявлять альтернативное имя типа.
 
-Do not use in-memory struct representation as portable wire/storage format.
+<a id="Go_1.13"></a>
+#### Go 1.13
 
-# Version-specific changes, значимые для Go 1.27
+- Целочисленные литералы могут использовать префиксы `0b`, `0B`, `0o`, `0O`.
+- Шестнадцатеричные литералы с плавающей точкой могут использовать `0x` и `0X`.
+- Суффикс `i` мнимых литералов применим к любым двоичным, десятичным и шестнадцатеричным целым или литералам с плавающей точкой.
+- Цифры числовых литералов можно разделять `_`.
+- Счётчик сдвига может иметь знаковый целочисленный тип.
 
-Эта baseline specification содержит накопленные language changes. Особо важно для Go 1.27:
+<a id="Go_1.14"></a>
+#### Go 1.14
 
-1. **Generic methods**: method declaration может иметь собственные type parameters после method name.
-2. **Keyed promoted struct fields**: keys struct literals могут использовать selector promoted fields с новыми overlap/pointer-path restrictions.
-3. Все более ранние modern features остаются частью языка: type parameters (1.18), comparable exception (1.20), `clear`/`min`/`max` (1.21), per-iteration loop variables + integer range (1.22), range-over-function iterators (1.23), current alias/toolchain-related language evolution, `new(value)` (1.26).
+- Встраивание одного метода более одного раза через разные встроенные интерфейсы не является ошибкой.
 
-Для migration code между language versions учитывайте `go` directive: compiler применяет language semantics, соответствующие declared module Go version там, где это предусмотрено compatibility model.
+<a id="Go_1.17"></a>
+#### Go 1.17
+
+- Срез можно преобразовать в указатель на массив, если типы элементов совпадают и массив не длиннее среза.
+- В `unsafe` добавлены `Add` и `Slice`.
+
+<a id="Go_1.18"></a>
+#### Go 1.18
+
+Go 1.18 добавил обобщённые функции и типы:
+
+- набор операторов и пунктуации включает `~`;
+- объявления функций и типов могут объявлять параметры типов;
+- интерфейсы могут встраивать произвольные типы, объединения и элементы `~T`;
+- добавлены предопределённые `any` и `comparable`.
+
+<a id="Go_1.20"></a>
+#### Go 1.20
+
+- Срез можно преобразовать в массив, если типы элементов совпадают и массив не длиннее среза.
+- В `unsafe` добавлены `SliceData`, `String`, `StringData`.
+- Сравнимые типы, включая обычные интерфейсы, могут удовлетворять `comparable`-ограничениям, даже если не являются строго сравнимыми.
+
+<a id="Go_1.21"></a>
+#### Go 1.21
+
+- Добавлены предопределённые `min`, `max`, `clear`.
+- Вывод типов использует типы методов интерфейсов и выводит аргументы для обобщённых функций, присваиваемых переменным или передаваемых другим функциям.
+
+<a id="Go_1.22"></a>
+#### Go 1.22
+
+- Каждая итерация `for` имеет собственный набор переменных итерации.
+- `range` может перебирать целые значения от нуля до верхней границы.
+
+<a id="Go_1.23"></a>
+#### Go 1.23
+
+- `range` принимает iterator-функцию как выражение диапазона.
+
+<a id="Go_1.24"></a>
+#### Go 1.24
+
+- Объявление псевдонима может объявлять параметры типов.
+
+<a id="Go_1.27"></a>
+#### Go 1.27
+
+- Вывод типов функций применяется во всех контекстах присваивания, в которых участвуют функции.
+- Объявление метода может объявлять параметры типов.
+- Ключ в составном литерале структуры может быть любым допустимым селектором поля для типа структуры, а не только именем поля верхнего уровня.
+
+<a id="Type_unification_rules"></a>
+### Правила унификации типов
+
+Правила унификации описывают, могут ли и каким образом два типа унифицироваться. Они важны для реализаций Go, влияют на детали сообщений об ошибках и объясняют редкие случаи неудачного вывода типов, но при обычном написании кода вывод типов предназначен работать ожидаемым образом.
+
+Унификация управляется режимом сопоставления: точным или свободным. При рекурсивном спуске по составному типу режим элементов обычно остаётся тем же, кроме унификации для присваиваемости `≡ₐ`: на верхнем уровне используется свободное сопоставление, а для элементов — точное.
+
+Два типа, не являющиеся связанными параметрами типов, унифицируются точно, если они идентичны; либо имеют идентичную структуру и их элементы унифицируются точно; либо ровно один тип — несвязанный параметр типа и все типы его множества унифицируются с другим типом по правилам присваиваемости.
+
+Если оба типа — связанные параметры типов, они унифицируются, когда параметры идентичны; либо не более чем у одного уже известен аргумент — тогда параметры объединяются и разделяют будущий аргумент; либо у обоих есть известные аргументы и эти аргументы унифицируются в данном режиме.
+
+Связанный параметр `P` и другой тип `T` унифицируются, если у `P` ещё нет аргумента — тогда `T` становится аргументом; либо известный аргумент `A` унифицируется с `T`, после чего применяются дополнительные правила для интерфейсных/определённых типов, сохраняющие наиболее конкретный допустимый вывод.
+
+Наконец, два типа, не являющиеся связанными параметрами, унифицируются свободно, если они унифицируются точно; либо один — определённый тип, другой — неинтерфейсный литерал типа и их базовые типы унифицируются; либо выполняются правила подмножеств методов для интерфейсов; либо они имеют одинаковую структуру, а элементы унифицируются в режиме элементов.

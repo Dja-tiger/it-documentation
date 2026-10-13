@@ -25,6 +25,7 @@
       "docs/articles/wiki.md",
       "docs/build-cover.md",
       "docs/code.md",
+      "docs/comment.md",
       "docs/contribute.md",
       "docs/database/cancel-operations.md",
       "docs/database/change-data.md",
@@ -40,6 +41,7 @@
       "docs/effective-go.md",
       "docs/faq.md",
       "docs/getting-started.md",
+      "docs/godebug.md",
       "docs/install-source.md",
       "docs/install.md",
       "docs/manage-install.md",
@@ -74,10 +76,7 @@
     "documents_in_full_fidelity_review": [
       "docs/spec.md"
     ],
-    "sampled_documents_requiring_full_fidelity_review": [
-      "docs/comment.md",
-      "docs/godebug.md"
-    ],
+    "sampled_documents_requiring_full_fidelity_review": [],
     "frontmatter_note": "A page is considered source-parity reviewed only when translation_status=reviewed and it appears in reviewed_documents. docs/spec.md remains translation_status=translated while its full source-parity restoration is in progress."
   },
   "coverage": {
@@ -85,9 +84,9 @@
     "installation": "reviewed",
     "how_to_write_go_code": "reviewed",
     "web_applications_tutorial": "reviewed",
-    "language_and_style": "spec_in_review_effective_go_faq_reviewed_other_pages_present",
+    "language_and_style": "spec_in_review_other_reviewed_pages_tracked_individually",
     "modules_and_toolchain": "module_guides_and_reference_reviewed_toolchain_unreviewed",
-    "runtime_and_performance": "memory_model_race_detector_diagnostics_coverage_reviewed_rest_present_unreviewed",
+    "runtime_and_performance": "memory_model_race_detector_diagnostics_godebug_coverage_reviewed_rest_present_unreviewed",
     "tutorials": "reviewed",
     "database_sql": "reviewed",
     "security": "present_unreviewed",
@@ -196,6 +195,7 @@
     "During full-fidelity restoration, module-conclusion.html was discovered through upstream navigation and added to the local tutorial tree.",
     "Go Modules Reference has a local source-parity-reviewed mirror pinned to golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749.",
     "FAQ and Effective Go have source-parity-reviewed mirrors; Effective Go intentionally preserves the historical upstream document rather than modernizing its content.",
+    "Go Doc Comments and GODEBUG are source-parity-reviewed against their pinned upstream revisions.",
     "Official mirror pages must not add assistant-authored operational advice that is absent from upstream; such material belongs in a separate learning or notes layer.",
     "Code, identifiers, command names, API names, configuration keys, and protocol tokens are preserved in their canonical form.",
     "SQL examples follow the repository convention with SQL keywords in lowercase."

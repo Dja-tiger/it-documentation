@@ -12,40 +12,38 @@
 
 ## Текущее состояние
 
-После технического ревью 2026-10-12 общий статус раздела — **`in_progress`**.
+Раздел проходит full-fidelity review относительно зафиксированного upstream. Общий статус остаётся **`in_progress`**, пока не завершена постраничная сверка всех документов.
 
-Фактическое дерево `docs/` содержит 65 Markdown-документов. Навигация и manifest синхронизированы с этим деревом, однако выборочная сверка с upstream показала, что часть страниц пока представляет собой сокращённую локализацию, а не полный перевод исходного документа.
+Фактическое дерево `docs/` содержит **69 Markdown-документов**. Наличие файла с `translation_status: translated` означает, что перевод существует, но не означает автоматически, что он прошёл полный source-parity review. Документы, сверенные с pinned upstream, помечаются `translation_status: reviewed`.
 
-Поэтому наличие файла с историческим `translation_status: translated` ещё не означает, что он прошёл полный source-parity review.
+Подробности исходного технического аудита: [[_meta/review-2026-10-12|техническое ревью раздела Go]].
 
-Подробности: [[_meta/review-2026-10-12|техническое ревью раздела Go]].
-
-## Что уже представлено локально
+## Что представлено локально
 
 В разделе есть материалы по:
 
-- установке и началу работы;
+- установке, включая сборку Go из исходников, и началу работы;
 - организации Go-кода;
 - language specification и memory model;
 - Effective Go, FAQ и doc comments;
-- modules и toolchain;
+- Go Modules Reference, разработке и публикации модулей, `go.mod` и toolchain;
 - diagnostics, race detector, GC, PGO, GODEBUG и assembler;
 - официальным tutorials;
 - `database/sql`;
 - security и vulnerability management;
+- Contribution Guide;
 - Go 1.27 release notes.
 
 Документация standard library на `pkg.go.dev/std` генерируется из комментариев исходного кода тысяч API-symbols. Она учитывается отдельно как generated canonical reference и не смешивается с ручным переводом guides.
 
-## Известные отсутствующие локальные зеркала
+## Канонические внешние ресурсы
 
-Пока не созданы полные локальные переводы:
+Некоторые официальные ресурсы остаются внешними, поскольку генерируются из исходного кода или являются интерактивными:
 
-- [Installing Go from source](https://go.dev/doc/install/source) → планируется `docs/install-source.md`;
-- [Go Modules Reference](https://go.dev/ref/mod) → планируется `docs/modules/reference.md`;
-- [Contribution Guide](https://go.dev/doc/contribute) → планируется `docs/contribute.md`.
-
-До появления этих файлов навигация должна вести на официальный upstream, а не на несуществующие WikiLinks.
+- [Standard library API](https://pkg.go.dev/std);
+- [Command documentation](https://pkg.go.dev/cmd);
+- [A Tour of Go](https://go.dev/tour/);
+- [История релизов Go](https://go.dev/doc/devel/release).
 
 ## Навигация
 

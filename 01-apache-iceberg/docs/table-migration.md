@@ -18,7 +18,7 @@ Apache Iceberg позволяет преобразовывать существ�
 
 Существует два основных подхода:
 
-1. **Full data migration** — копирование всех data files source table в новую Iceberg table. Новая table полностью изолирована от source, но операция медленнее и временно требует примерно двойного storage. Практические способы: [[spark-ddl#CREATE TABLE AS SELECT|CTAS]], [[spark-writes#insert into|insert]], CDC pipelines.
+1. **Full data migration** — копирование всех data files source table в новую Iceberg table. Новая table полностью изолирована от source, но операция медленнее и временно требует примерно двойного storage. Практические способы: [[spark-ddl#CREATE TABLE ... AS SELECT|CTAS]], [[spark-writes#insert into|insert]], CDC pipelines.
 2. **In-place metadata migration** — существующие data files не копируются; поверх них создаются Iceberg metadata. Это быстро и не дублирует data, но source и Iceberg table не полностью изолированы. Если source system физически vacuum/remove shared data file, Iceberg table также потеряет его.
 
 ![In-Place Metadata Migration](assets/images/iceberg-in-place-metadata-migration.png)

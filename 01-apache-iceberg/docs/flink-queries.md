@@ -5,7 +5,7 @@ source_project: apache/iceberg
 source_file: docs/docs/flink-queries.md
 source_ref: apache-iceberg-1.12.0
 source_url: https://github.com/apache/iceberg/blob/apache-iceberg-1.12.0/docs/docs/flink-queries.md
-translation_status: translated
+translation_status: in_progress
 translated_at: 2026-10-12
 ---
 <!-- Apache Iceberg documentation, Apache License 2.0. Russian translation modified from the original. -->

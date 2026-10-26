@@ -5,7 +5,7 @@ source_project: apache/iceberg
 source_file: docs/docs/spark-procedures.md
 source_ref: apache-iceberg-1.12.0
 source_url: https://github.com/apache/iceberg/blob/apache-iceberg-1.12.0/docs/docs/spark-procedures.md
-translation_status: translated
+translation_status: in_progress
 translated_at: 2026-10-12
 ---
 <!-- Apache Iceberg documentation, Apache License 2.0. Russian translation modified from the original. -->
@@ -65,6 +65,9 @@ call catalog_name.system.rollback_to_snapshot('db.sample', 1);
 
 Откатывает к snapshot, который был current в указанный момент.
 
+> [!info]
+> Процедура инвалидирует все кэшированные планы Spark, которые обращаются к затронутой таблице.
+
 | Argument | Required | Type | Описание |
 | --- | --- | --- | --- |
 | `table` | ✔ | string | Таблица |
@@ -80,6 +83,9 @@ call catalog_name.system.rollback_to_timestamp('db.sample', timestamp '2021-06-3
 
 Назначает current snapshot. В отличие от rollback, выбранный snapshot не обязан быть ancestor текущего state.
 
+> [!info]
+> Процедура инвалидирует все кэшированные планы Spark, которые обращаются к затронутой таблице.
+
 | Argument | Required | Type | Описание |
 | --- | --- | --- | --- |
 | `table` | ✔ | string | Таблица |
@@ -87,6 +93,14 @@ call catalog_name.system.rollback_to_timestamp('db.sample', timestamp '2021-06-3
 | `ref` | — | string | Branch/tag reference |
 
 Нужно передать ровно один из `snapshot_id` или `ref`.
+
+Output:
+
+| Field | Type | Описание |
+| --- | --- | --- |
+| `previous_snapshot_id` | long | Текущий snapshot ID до изменения |
+| `current_snapshot_id` | long | Новый текущий snapshot ID |
+
 
 ```sql
 call catalog_name.system.set_current_snapshot('db.sample', 1);
@@ -96,6 +110,9 @@ call catalog_name.system.set_current_snapshot(table => 'db.sample', ref => 's1')
 ### `cherrypick_snapshot`
 
 Cherry-pick переносит изменения существующего snapshot в current table state, создавая новый snapshot и не изменяя original. Поддерживаются только append и dynamic overwrite snapshots.
+
+> [!info]
+> Процедура инвалидирует все кэшированные планы Spark, которые обращаются к затронутой таблице.
 
 | Argument | Required | Type |
 | --- | --- | --- |
@@ -112,6 +129,9 @@ call catalog_name.system.cherrypick_snapshot(snapshot_id => 1, table => 'my_tabl
 ### `publish_changes`
 
 Публикует изменения staged WAP ID в current table state. Создаёт новый snapshot на основе staged snapshot. Успешно публикуются только append/dynamic overwrite snapshots. Если найдено несколько snapshots с одним `wap_id`, procedure завершается ошибкой.
+
+> [!info]
+> Процедура инвалидирует все кэшированные планы Spark, которые обращаются к затронутой таблице.
 
 | Argument | Required | Type |
 | --- | --- | --- |

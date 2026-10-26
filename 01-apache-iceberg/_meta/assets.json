@@ -1,0 +1,50 @@
+{
+  "source_ref": "apache-iceberg-1.12.0",
+  "assets": [
+    {
+      "path": "docs/assets/images/audit-branch.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/audit-branch.png",
+      "sha256": "45c6fe7f7b4fa2f56d2314ee71e07cf30e48a35428633e66b3efc894787a194e"
+    },
+    {
+      "path": "docs/assets/images/historical-snapshot-tag.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/historical-snapshot-tag.png",
+      "sha256": "4ac9a640e287e96725611927ecdddac8a1e36fd642383ae331bcd69164587b82"
+    },
+    {
+      "path": "docs/assets/images/iceberg-in-place-metadata-migration.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-in-place-metadata-migration.png",
+      "sha256": "cfa20a2129acd36b2a75ddcdc24e7025a0189ce0983569eab92e5aa674bb9c94"
+    },
+    {
+      "path": "docs/assets/images/iceberg-migrateaction-step1.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-migrateaction-step1.png",
+      "sha256": "d01729f12bf3378f846e661c607d011d77dcf36f6752510229f1d33e81c05db5"
+    },
+    {
+      "path": "docs/assets/images/iceberg-migrateaction-step2.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-migrateaction-step2.png",
+      "sha256": "6179f9934874516f37aea3dce33cc9113a11cc3dbebd998f204e2618e5469d98"
+    },
+    {
+      "path": "docs/assets/images/iceberg-migrateaction-step3.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-migrateaction-step3.png",
+      "sha256": "68258a53145c1e6e5b874552048be8f1b3802c3738d366fced3e4aae853d8298"
+    },
+    {
+      "path": "docs/assets/images/iceberg-snapshotaction-step1.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-snapshotaction-step1.png",
+      "sha256": "189e21ad50d8b39ba482a0a2906a6ad900b2b6856ef4b799ca358d53217691f3"
+    },
+    {
+      "path": "docs/assets/images/iceberg-snapshotaction-step2.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/iceberg-snapshotaction-step2.png",
+      "sha256": "77ded3fdd17045180b83a2a9cf611ab471fd8b2cbea82d45fefd20b1e2cab7e9"
+    },
+    {
+      "path": "docs/assets/images/partition-spec-evolution.png",
+      "source_url": "https://raw.githubusercontent.com/apache/iceberg/apache-iceberg-1.12.0/docs/docs/assets/images/partition-spec-evolution.png",
+      "sha256": "4b0f0b1dac020e8f1b3be93d425036d6e10c7cbd575ca896c2617bec98d2e749"
+    }
+  ]
+}

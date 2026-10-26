@@ -103,7 +103,7 @@ CALL catalog_name.system.fast_forward('prod.db.table', 'main', 'audit-branch');
 
 Создание, чтение и запись branches/tags поддерживаются Java-библиотекой Iceberg и интеграциями Spark/Flink:
 
-- [[java-api-quickstart#Branching and tagging|Iceberg Java Library]]
+- [[java-api-quickstart#Ветвление и теги|Iceberg Java Library]]
 - [[spark-ddl|Spark DDL]]
 - [[spark-queries|Spark Reads]]
 - [[spark-writes|Spark Branch Writes]]

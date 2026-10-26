@@ -1,0 +1,35 @@
+name: Validate Iceberg documentation
+
+on:
+  pull_request:
+    paths:
+      - "01-apache-iceberg/**"
+      - ".github/workflows/validate-iceberg-docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "01-apache-iceberg/**"
+      - ".github/workflows/validate-iceberg-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links-and-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python 01-apache-iceberg/_meta/validate.py
+      - run: bash -n 01-apache-iceberg/labs/run.sh
+
+  lab:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash 01-apache-iceberg/labs/run.sh

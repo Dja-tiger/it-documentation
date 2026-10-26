@@ -12,6 +12,10 @@ source_ref: apache-iceberg-1.12.0
 
 # Apache Iceberg — документация
 
+Начать изучение: [учебный маршрут](learn/README.md) → [лабораторная](labs/README.md).
+Для работы: [справочник по задачам](reference/README.md).
+Статус полноты и результаты проверки: [отчёт](_meta/review-2026-10-26.md).
+
 > [!note]
 > Навигация повторяет `docs/mkdocs.yml` официальной документации Apache Iceberg 1.12.0.
 

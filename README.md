@@ -18,7 +18,7 @@
 
 ## Разделы
 
-1. [[01-apache-iceberg/MOC|Apache Iceberg]] — baseline `1.12.0` (`apache-iceberg-1.12.0`).
+1. [Apache Iceberg](01-apache-iceberg/README.md) — baseline `1.12.0` (`apache-iceberg-1.12.0`); [обучение](01-apache-iceberg/learn/README.md), [практика](01-apache-iceberg/labs/README.md), [справочник по задачам](01-apache-iceberg/reference/README.md). Статус раздела: `in_progress`; [проверка полноты](01-apache-iceberg/_meta/review-2026-10-26.md).
 2. [[02-golang/MOC|Go / Golang]] — baseline `Go 1.27.1`; `golang/go@go1.27.1`, `golang/website@575a6925e2d55ad160ed77f402bfaa4ec7458749`; статус раздела: `in_progress` после full-fidelity review от 2026-10-12.
 
 ## Статусы перевода

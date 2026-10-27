@@ -18,14 +18,16 @@ Spark на данный момент является compute engine с наиб
 
 ## Использование Iceberg в Spark
 
+В следующих командах шаблоны upstream раскрыты для **Spark 3.5 / Scala 2.12 / Iceberg 1.12.0**. Используйте Java 17. Проверенное окружение Spark 3.5.5 и пошаговый запуск без внешнего metastore находятся в [[../labs/README|лабораторной]]. Для другого Spark или Scala нужен соответствующий runtime artifact.
+
 Чтобы подключить Iceberg в Spark shell, используйте `--packages`:
 
 ```sh
-spark-shell --packages org.apache.iceberg:iceberg-spark-runtime-{{ sparkVersionMajor }}:{{ icebergVersion }}
+spark-shell --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.12.0
 ```
 
 > [!info]
-> Если Iceberg должен быть частью установки Spark, добавьте JAR `iceberg-spark-runtime-{{ sparkVersionMajor }}` в каталог Spark `jars`.
+> Если Iceberg должен быть частью установки Spark, добавьте JAR `iceberg-spark-runtime-3.5_2.12` в каталог Spark `jars`.
 
 ### Добавление catalogs
 
@@ -34,7 +36,7 @@ Iceberg предоставляет [[spark-configuration#Catalogs|catalogs]], п
 Следующая команда создаёт path-based catalog `local` для таблиц в `$PWD/warehouse` и добавляет поддержку Iceberg в built-in catalog Spark:
 
 ```sh
-spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-{{ sparkVersionMajor }}:{{ icebergVersion }}\
+spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.12.0\
     --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
     --conf spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
     --conf spark.sql.catalog.spark_catalog.type=hive \
@@ -101,7 +103,7 @@ from local.db.table
 group by data;
 ```
 
-SQL также рекомендуется для [[spark-queries#Просмотр метаданных таблицы|инспекции metadata tables]]. Например, все snapshots:
+SQL также рекомендуется для [[spark-queries#Просмотр metadata tables|инспекции metadata tables]]. Например, все snapshots:
 
 ```sql
 select * from local.db.table.snapshots;

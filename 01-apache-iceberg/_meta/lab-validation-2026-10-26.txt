@@ -1,0 +1,23 @@
+Date: 2026-10-26 (Europe/Moscow)
+Platform tested: linux/arm64 (Docker on macOS)
+Image: apache/spark:3.5.5-java17-python3
+Image digest: sha256:96dc2bada923824300e1ece564389258934655ba6f463d6daff8753ff0c639ce
+Iceberg: iceberg-spark-runtime-3.5_2.12:1.12.0
+JAR SHA-256: 8dd8c90e54ed1a20f2461309d047a255ee56382eb7c0a46162b27a4936fd86dc
+Command: ICEBERG_LAB_CACHE=/tmp/iceberg-learning-1.12.0 bash 01-apache-iceberg/labs/run.sh
+Exit code: 0
+
+Captured result lines:
+PASS: initial rows: [(1, 'a'), (2, 'b')]
+PASS: old rows have NULL in added column: 2
+PASS: old and new partition specs coexist: 2
+PASS: merge updates and inserts: [(1, 'a'), (2, 'updated'), (3, 'c'), (4, 'd')]
+PASS: delete removes selected row: [(2, 'updated'), (3, 'c'), (4, 'd')]
+PASS: time travel preserves original rows: [(1, 'a'), (2, 'b')]
+PASS: rollback restores original data: [(1, 'a'), (2, 'b')]
+PASS: rollback does not undo schema evolution: True
+rewrite_data_files: [Row(rewritten_data_files_count=4, added_data_files_count=1, rewritten_bytes_count=2576, failed_data_files_count=0, removed_delete_files_count=0)]
+PASS: compaction preserves rows: [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]
+PASS: compaction reduces files: 4 -> 1
+PASS: dry run preserves rows: [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]
+ALL ICEBERG LAB CHECKS PASSED
